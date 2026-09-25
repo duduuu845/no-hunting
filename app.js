@@ -433,6 +433,18 @@ async function triggerAiReply() {
             });
             fullReply = fullReply.replace(diaryRegex, '').trim();
         }
+        // 提取最新心声 [heart_voice]...[/heart_voice]
+        const hvMatch = fullReply.match(/\[heart_voice\]([\s\S]*?)\[\/heart_voice\]/);
+        if (hvMatch) {
+            appData.heartVoice = hvMatch[1].trim();
+            const popContent = document.getElementById('heart-voice-content');
+            if (popContent) popContent.innerText = appData.heartVoice;
+            
+            // 实时把最新的心声写进本地缓存，防止刷新丢失！
+            localStorage.setItem('sr_heart_voice', appData.heartVoice);
+            
+            fullReply = fullReply.replace(/\[heart_voice\][\s\S]*?\[\/heart_voice\]/, '').trim();
+        }
 
         // 提取随手记短评
         const memoMatch = fullReply.match(/\[memo_comment\]([\s\S]*?)\[\/memo_comment\]/);
@@ -486,7 +498,7 @@ function triggerRollback() {
     
     openAppDialog('confirm', {
         title: "回溯对话",
-        msg: "确定要撤回宋凛的最新回复并重新生成吗？",
+        msg: "确定要撤回最新回复并重新生成吗？",
         onConfirm: () => {
             const lastCharRow = charRows[charRows.length - 1];
             const msgId = lastCharRow.dataset.msgId;
@@ -1516,7 +1528,12 @@ window.addEventListener('resize', adjustViewport);
 window.addEventListener('orientationchange', adjustViewport);
 window.onload = function() {
     renderChatHistory();
-
+// 开机读取最新的心声并显示
+    const savedHeartVoice = localStorage.getItem('sr_heart_voice');
+    if (savedHeartVoice) appData.heartVoice = savedHeartVoice;
+    if (document.getElementById('heart-voice-content')) {
+        document.getElementById('heart-voice-content').innerText = appData.heartVoice || "无";
+    }
     const savedLockBg = localStorage.getItem('sr_lock_bg');
     if (savedLockBg) {
         document.documentElement.style.setProperty('--lock-bg-custom', `url(${savedLockBg})`);
@@ -1546,18 +1563,7 @@ window.onload = function() {
     }
 
     renderStickerPage();
-    // --- 暴力全屏唤醒开关 ---
-    // 给整个网页绑一个单击事件，只要你手指头一碰屏幕任意地方（比如滑开锁屏），瞬间强占全屏！
-    document.body.addEventListener('click', function() {
-        if (!document.fullscreenElement && !window.navigator.standalone) {
-            const docEl = document.documentElement;
-            if (docEl.requestFullscreen) {
-                docEl.requestFullscreen().catch(e => console.log('全屏被拒:', e));
-            } else if (docEl.webkitRequestFullscreen) { 
-                docEl.webkitRequestFullscreen().catch(e => console.log(e));
-            }
-        }
-    }, { once: true }); // 只触发一次，别每次点都弹
+
     if (document.getElementById('cfg-fanwai-endpoint')) {
         document.getElementById('cfg-fanwai-endpoint').value = localStorage.getItem('sr_fanwai_endpoint') || '';
     }
