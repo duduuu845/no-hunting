@@ -1503,7 +1503,17 @@ setInterval(() => {
     });
 }, 30000);
 
-// --- 初始化与世界书/设置模块 ---
+// --- 核心修复：移动端 Chrome 流氓地址栏克星 (动态计算真实可视高度) ---
+function adjustViewport() {
+    // 获取当前真实的视口高度的 1%
+    let vh = window.innerHeight * 0.01;
+    // 把这个值硬塞给 CSS 的 --vh 变量
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+// 初次加载和屏幕尺寸变动(地址栏缩放)时，强行重新计算！
+adjustViewport();
+window.addEventListener('resize', adjustViewport);
+window.addEventListener('orientationchange', adjustViewport);
 window.onload = function() {
     renderChatHistory();
 
