@@ -82,7 +82,7 @@ body {
     -webkit-backdrop-filter: blur(20px);
     /* 核心避雷针：顶部内边距 = 基础 10px + 手机刘海高度 */
     padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
-    display: flex !important;
+    display: flex ;
     flex-direction: row !important;
     align-items: center !important;
     justify-content: space-between !important;
