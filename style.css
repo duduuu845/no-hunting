@@ -98,17 +98,23 @@ body {
 .header-btn {
     background: none; border: none; color: var(--ios-blue); font-size: 18px; cursor: pointer; display: flex; align-items: center; padding: 4px; white-space: nowrap; flex-shrink: 0;
 }
+/* 让昵称和心声绝对居中，无视左右按钮的宽度挤压！ */
 .header-title-box {
-    /* 取消绝对死板定位，改用 Flex 弹性居中，防止被异形屏错位 */
-    flex: 1;
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
     display: flex;
     flex-direction: column;
     align-items: center;
     cursor: pointer;
     z-index: 31;
-    pointer-events: auto;
+    pointer-events: auto; /* 保证心声依然能正常点击展开 */
 }
-.header-title-text { font-size: 14.5px; font-weight: 600; color: var(--text-main); white-space: nowrap; }
+
+/* 为了防止左右按钮遮挡绝对居中的标题，确保两端区域宽度一致或足够空出 */
+.header-left { display: flex; align-items: center; gap: 8px; flex: 1; }
+.header-right { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex: 1; }
+.header-title-text { font-size: 16.5px; font-weight: 600; color: var(--text-main); white-space: nowrap; }
 .header-status-text { font-size: 10px; color: var(--text-sub); margin-top: 1px; white-space: nowrap; }
 
 .general-header {
