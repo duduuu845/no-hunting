@@ -11,10 +11,10 @@ let appData = {
     schedules: JSON.parse(localStorage.getItem('sr_schedules') || '[]'),
     personas: JSON.parse(localStorage.getItem('sr_personas') || JSON.stringify({
         char: [
-            { id: "p_char_1", name: "宋凛", sign: "合法丈夫 · 首席中枢", avatar: "🐺", prompt: "" }
+            { id: "p_char_1", name: "", sign: "", avatar: "🐺", prompt: "" }
         ],
         user: [
-            { id: "p_user_1", name: "江晚星", sign: "375分持证战神", avatar: "🦊", prompt: "" }
+            { id: "p_user_1", name: "", sign: "", avatar: "🦊", prompt: "" }
         ]
     })),
     jailbreaks: JSON.parse(localStorage.getItem('sr_jailbreaks') || '[]'),
@@ -378,7 +378,7 @@ async function triggerAiReply() {
     systemPrompt += `[USER 对话伴侣档案]:\n姓名: ${userObj.name}\n人设: ${userObj.prompt}\n\n`;
     systemPrompt += `[生效世界书]:\n${activeWorldbooks.map(w => `【${w.title}】:\n${w.content}`).join('\n')}\n\n`;
     systemPrompt += `[长期记忆核心]:\n${appData.coreMemories.map(c => c.text).join('\n')}\n\n`;
-    systemPrompt += `[江晚星生活作息与随手记]:\n${JSON.stringify(appData.schedules)}\n随手记: ${localStorage.getItem('sr_memo') || ''}\n\n`;
+    systemPrompt += `[生活作息与随手记]:\n${JSON.stringify(appData.schedules)}\n随手记: ${localStorage.getItem('sr_memo') || ''}\n\n`;
     
     // 3. 格式与分包规则
     systemPrompt += `[输出法则 (严格执行)]:
@@ -1546,6 +1546,18 @@ window.onload = function() {
     }
 
     renderStickerPage();
+    // --- 暴力全屏唤醒开关 ---
+    // 给整个网页绑一个单击事件，只要你手指头一碰屏幕任意地方（比如滑开锁屏），瞬间强占全屏！
+    document.body.addEventListener('click', function() {
+        if (!document.fullscreenElement && !window.navigator.standalone) {
+            const docEl = document.documentElement;
+            if (docEl.requestFullscreen) {
+                docEl.requestFullscreen().catch(e => console.log('全屏被拒:', e));
+            } else if (docEl.webkitRequestFullscreen) { 
+                docEl.webkitRequestFullscreen().catch(e => console.log(e));
+            }
+        }
+    }, { once: true }); // 只触发一次，别每次点都弹
     if (document.getElementById('cfg-fanwai-endpoint')) {
         document.getElementById('cfg-fanwai-endpoint').value = localStorage.getItem('sr_fanwai_endpoint') || '';
     }
