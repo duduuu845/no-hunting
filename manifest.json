@@ -2,9 +2,9 @@
   "name": "禁猎区",
   "short_name": "no-hunting",
   "start_url": "./index.html",
-  "display": "fullscreen", 
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f2f5f8",
   "orientation": "portrait",
   "icons": [
     {
