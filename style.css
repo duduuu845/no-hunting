@@ -69,11 +69,6 @@ body {
         display: flex !important;
         flex-direction: column !important;
     }
-    /* 强行垫高底栏，防全面屏底部黑条 */
-    .bottom-nav {
-        padding-bottom: calc(10px + env(safe-area-inset-bottom, 12px)) !important;
-    }
-}
 
 /* 顶部 Header：避开挖孔屏/刘海屏摄像头安全区 */
 .chat-header {
