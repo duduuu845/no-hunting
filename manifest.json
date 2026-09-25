@@ -1,6 +1,6 @@
 {
   "name": "禁猎区",
-  "short_name": "禁猎区",
+  "short_name": "no-hunting",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#000000",
