@@ -357,9 +357,16 @@ body.dark-mode .memo-block { background: rgba(255,255,255,0.04); }
 
 /* 底部全局导航 */
 .bottom-nav {
-    background: var(--panel-bg); backdrop-filter: blur(25px);
-    display: flex; justify-content: space-around; padding: 8px 0 14px;
-    border-top: 0.5px solid var(--border-light); z-index: 30; flex-shrink: 0;
+    background: var(--panel-bg);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0 calc(14px + env(safe-area-inset-bottom, 0px)); /* 安全区填充与底栏一体化 */
+    border-top: 0.5px solid var(--border-light);
+    z-index: 30;
+    flex-shrink: 0;
+    width: 100%;
 }
 .nav-item {
     display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; color: var(--text-sub); cursor: pointer; border: none; background: none; white-space: nowrap;
