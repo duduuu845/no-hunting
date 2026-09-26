@@ -109,29 +109,13 @@ function updateLockClock() {
 }
 
 function unlockScreen() {
-    // 1. 尝试全屏
-    const docEl = document.documentElement;
-    if (docEl.requestFullscreen) {
-        docEl.requestFullscreen().catch(e => console.log('全屏被拒:', e));
-    } else if (docEl.webkitRequestFullscreen) { 
-        docEl.webkitRequestFullscreen().catch(e => console.log(e));
-    } else if (docEl.msRequestFullscreen) {
-        docEl.msRequestFullscreen().catch(e => console.log(e));
-    }
-
-    // 2. 移除锁屏
+    // 移除锁屏
     const lockEl = document.getElementById('lockscreen');
     if (lockEl) lockEl.classList.add('unlocked');
     
-    // 3. 消除红点
+    // 消除红点
     const unreadCard = document.getElementById('lock-unread-card');
     if (unreadCard) unreadCard.classList.remove('has-unread');
-
-    // 4. 【核心绝杀】锁屏解开的一瞬间，才允许输入栏和底栏重见天日！
-    const inputBar = document.getElementById('chat-input-bar');
-    const bottomNav = document.querySelector('.bottom-nav');
-    if (inputBar) inputBar.style.display = 'flex';
-    if (bottomNav) bottomNav.style.display = 'flex';
 }
     
 // --- 4大主Tab切换 ---
@@ -1898,10 +1882,6 @@ function syncChatBottomPadding() {
     if (chatView) chatView.style.paddingBottom = '';
 }
 window.onload = function() {
-    const inputBar = document.getElementById('chat-input-bar');
-    const bottomNav = document.querySelector('.bottom-nav');
-    if (inputBar) inputBar.style.display = 'none';
-    if (bottomNav) bottomNav.style.display = 'none';
     renderChatHistory();
 // 开机读取最新的心声并显示
     const savedHeartVoice = localStorage.getItem('sr_heart_voice');
