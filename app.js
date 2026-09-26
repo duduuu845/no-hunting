@@ -113,11 +113,8 @@ function updateLockClock() {
 }
 
 function unlockScreen() {
-    // 移除锁屏
     const lockEl = document.getElementById('lockscreen');
     if (lockEl) lockEl.classList.add('unlocked');
-    
-    // 消除红点
     const unreadCard = document.getElementById('lock-unread-card');
     if (unreadCard) unreadCard.classList.remove('has-unread');
 }
@@ -1895,6 +1892,9 @@ function syncChatBottomPadding() {
     if (chatView) chatView.style.paddingBottom = '';
 }
 window.onload = function() {
+    // 强制移除锁屏的解锁态，确保每次打开都看到锁屏
+    const lockEl = document.getElementById('lockscreen');
+    if (lockEl) lockEl.classList.remove('unlocked');
     switchMainTab('chat-container', appData.contactName || '宋凛', document.querySelector('.nav-item'));
     renderChatHistory();
 // 开机读取最新的心声并显示
