@@ -126,7 +126,17 @@ function unlockScreen() {
 function switchMainTab(viewId, title, btn) {
     document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.sub-page').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.search-page').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.modal-dialog').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.left-drawer').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.incoming-call-overlay').forEach(p => p.classList.remove('active'));
+    // 顺便关掉表情浮窗、加号菜单、心声浮窗，避免残留
+    const stickerPopup = document.getElementById('sticker-popup');
+    if (stickerPopup) stickerPopup.classList.remove('open');
+    if (typeof closeAllPopups === 'function') closeAllPopups();
 
+    const chatHeader = document.getElementById('chat-header');
     const chatHeader = document.getElementById('chat-header');
     const generalHeader = document.getElementById('general-header');
     const inputBar = document.getElementById('chat-input-bar');
@@ -1886,6 +1896,7 @@ function syncChatBottomPadding() {
     if (chatView) chatView.style.paddingBottom = '';
 }
 window.onload = function() {
+    switchMainTab('chat-container', appData.contactName || '宋凛', document.querySelector('.nav-item'));
     renderChatHistory();
 // 开机读取最新的心声并显示
     const savedHeartVoice = localStorage.getItem('sr_heart_voice');

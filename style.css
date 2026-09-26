@@ -444,7 +444,8 @@ body.dark-mode .memo-block { background: rgba(255,255,255,0.04); }
 
 /* 独立全屏子页面 */
 .sub-page {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    position: absolute; top: 0; left: 0; width: 100%;
+    height: calc(100% - var(--bottom-nav-total));   /* 关键：减去底栏高度，让底栏永远露出来 */
     background: var(--bg-page); z-index: 70; display: none; flex-direction: column;
 }
 .sub-page.open { display: flex; }
@@ -499,7 +500,8 @@ body.dark-mode .memo-block { background: rgba(255,255,255,0.04); }
 
 /* 搜索页面 */
 .search-page {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    position: absolute; top: 0; left: 0; width: 100%;
+    height: calc(100% - var(--bottom-nav-total));   /* 同样减掉底栏 */
     background: var(--chat-bg); z-index: 80; display: none; flex-direction: column;
 }
 .search-page.open { display: flex; }
