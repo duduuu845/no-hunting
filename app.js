@@ -20,11 +20,15 @@ let appData = {
     jailbreaks: JSON.parse(localStorage.getItem('sr_jailbreaks') || '[]'),
     worldbookCategories: JSON.parse(localStorage.getItem('sr_wb_cats') || '["全部"]'),
     worldbooks: JSON.parse(localStorage.getItem('sr_worldbooks') || '[]'),
-    memories: JSON.parse(localStorage.getItem('sr_memories') || JSON.stringify({
-    long: [],       // 卷宗（卷一、卷二...）
-    medium: [],     // 中长期记忆（段落式总结）
-    short: []       // 短期碎片（最多10条备忘录）
-})),
+memories: (() => {
+    let parsed = {};
+    try { parsed = JSON.parse(localStorage.getItem('sr_memories') || '{}'); } catch(e) { parsed = {}; }
+    return {
+        long: Array.isArray(parsed.long) ? parsed.long : [],
+        medium: Array.isArray(parsed.medium) ? parsed.medium : [],
+        short: Array.isArray(parsed.short) ? parsed.short : []
+    };
+})(),
     boundWbIds: JSON.parse(localStorage.getItem('sr_bound_wb_ids') || '[]'),
     stickers: JSON.parse(localStorage.getItem('sr_stickers') || '{"默认狗头":[]}'),
     auditLogs: JSON.parse(localStorage.getItem('sr_audit_logs') || '[]'),
@@ -2602,11 +2606,16 @@ let currentWbTab = 'jailbreak';
 let currentWbCategory = '全部';
 
 function openWbHub() {
-    renderJailbreaks();
-    renderMemories();
-    renderWbCategories();
-    renderWorldbooks();
-    openSubModal('modal-wb-hub');
+    try {
+        renderJailbreaks();
+        renderMemories();
+        renderWbCategories();
+        renderWorldbooks();
+        openSubModal('modal-wb-hub');
+    } catch(e) {
+        alert('世界书打开失败：' + e.message);
+        console.error(e);
+    }
 }
 
 function switchWbTab(tabId, btn) {
@@ -2836,6 +2845,12 @@ function deleteCurrentEntry() {
 
 // 记忆卷宗渲染
 function renderMemories() {
+    // 统一兜底，防止老数据缺字段
+    if (!appData.memories) appData.memories = { long: [], medium: [], short: [] };
+    if (!Array.isArray(appData.memories.long)) appData.memories.long = [];
+    if (!Array.isArray(appData.memories.medium)) appData.memories.medium = [];
+    if (!Array.isArray(appData.memories.short)) appData.memories.short = [];
+
     // 长期卷宗
     const longCont = document.getElementById('long-mem-list');
     if (longCont) {
