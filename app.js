@@ -137,7 +137,6 @@ function switchMainTab(viewId, title, btn) {
     if (typeof closeAllPopups === 'function') closeAllPopups();
 
     const chatHeader = document.getElementById('chat-header');
-    const chatHeader = document.getElementById('chat-header');
     const generalHeader = document.getElementById('general-header');
     const inputBar = document.getElementById('chat-input-bar');
     const generalMemoBtn = document.getElementById('general-memo-btn');
