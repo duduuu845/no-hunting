@@ -132,11 +132,8 @@ function unlockScreen() {
     const bottomNav = document.querySelector('.bottom-nav');
     if (inputBar) inputBar.style.display = 'flex';
     if (bottomNav) bottomNav.style.display = 'flex';
-
-    // 5. 同步聊天区底部 padding
-    setTimeout(syncChatBottomPadding, 50);
 }
-
+    
 // --- 4大主Tab切换 ---
 function switchMainTab(viewId, title, btn) {
     document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
@@ -304,13 +301,11 @@ function triggerQuoteFromPill(btn, e) {
     document.getElementById('quote-preview-bar').style.display = 'flex';
     btn.closest('.bubble-action-pills').classList.remove('active');
     document.getElementById('chat-msg-input').focus();
-    syncChatBottomPadding();
 }
 
 function cancelQuote() {
     currentQuoteData = null;
     document.getElementById('quote-preview-bar').style.display = 'none';
-    syncChatBottomPadding();
 }
 
 function triggerRecallFromPill(btn, e) {
@@ -469,11 +464,21 @@ function renderRealImgItem(chatView, item) {
     const row = document.createElement('div');
     row.className = `msg-row ${item.role}`;
     row.dataset.msgId = item.id;
+
+    let mediaHtml = '';
+    if (item.mediaUrl && item.mediaUrl.startsWith('data:')) {
+        mediaHtml = `<img src="${item.mediaUrl}" style="max-width:160px; border-radius:12px; display:block;">`;
+    } else if (item.mediaUrl && item.mediaUrl.startsWith('http')) {
+        mediaHtml = `<img src="${item.mediaUrl}" style="max-width:160px; border-radius:12px; display:block;">`;
+    } else {
+        mediaHtml = `<div style="padding:20px 30px; background:var(--char-bubble); border-radius:12px; color:var(--text-sub); font-size:12px; text-align:center;">📷 图片未保存</div>`;
+    }
+
     row.innerHTML = `
         <input type="checkbox" class="msg-checkbox" onchange="updateSelectedCount()">
         <div class="bubble-container">
             <div class="msg-bubble" style="background:transparent; padding:0;">
-                <img src="${item.mediaUrl}" style="max-width:160px; border-radius:12px; display:block;">
+                ${mediaHtml}
             </div>
             <span class="msg-time">${item.time}</span>
         </div>
@@ -1888,20 +1893,9 @@ window.addEventListener('resize', syncChatBottomPadding);
 window.addEventListener('orientationchange', syncChatBottomPadding);
 // 动态同步聊天区底部 padding（兼容引用条显示/隐藏时的高度变化）
 function syncChatBottomPadding() {
-    if (window.innerWidth > 480) {
-        const chatView = document.getElementById('view-chat');
-        if (chatView) chatView.style.paddingBottom = '';
-        return;
-    }
-    const inputBar = document.getElementById('chat-input-bar');
-    const quoteBar = document.getElementById('quote-preview-bar');
+    // 输入框已回到文档流，不再需要额外 padding
     const chatView = document.getElementById('view-chat');
-    if (!chatView) return;
-
-    let h = 0;
-    if (inputBar && inputBar.style.display !== 'none') h += inputBar.offsetHeight;
-    if (quoteBar && quoteBar.style.display !== 'none') h += quoteBar.offsetHeight;
-    chatView.style.paddingBottom = (h + 12) + 'px';
+    if (chatView) chatView.style.paddingBottom = '';
 }
 window.onload = function() {
     const inputBar = document.getElementById('chat-input-bar');
@@ -3274,15 +3268,204 @@ function clearLockBg() {
     openAlert('已清除锁屏壁纸！');
 }
 
-function exportBackupData() {
-    const jsonStr = JSON.stringify(appData, null, 2);
+// 打开导出选项弹窗
+function openExportOptionsDialog() {
+    // 先估算各部分大小
+    const chatImgsSize = estimateImagesSize(appData.chatHistory);
+    const stickersSize = estimateStickersSize(appData.stickers);
+    const journalsSize = estimateJournalsSize(calState.journals);
+
+    const dialog = document.getElementById('app-dialog');
+    const titleEl = document.getElementById('dialog-title');
+    const bodyEl = document.getElementById('dialog-body');
+    const confirmBtn = document.getElementById('btn-dialog-confirm');
+
+    titleEl.innerText = "导出内容选择";
+    bodyEl.innerHTML = `
+        <div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">
+            勾选要包含在备份文件里的内容。取消勾选可以大幅减小文件体积。
+        </div>
+        <label style="display:flex; align-items:center; gap:8px; padding:8px; background:var(--char-bubble); border-radius:8px;">
+            <input type="checkbox" id="exp-chat-img" checked>
+            <span style="flex:1; font-size:13px;">📷 聊天图片（用户上传的）</span>
+            <span style="font-size:11px; color:var(--text-sub);">${chatImgsSize}</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; padding:8px; background:var(--char-bubble); border-radius:8px;">
+            <input type="checkbox" id="exp-stickers" checked>
+            <span style="flex:1; font-size:13px;">🖼️ 表情包</span>
+            <span style="font-size:11px; color:var(--text-sub);">${stickersSize}</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; padding:8px; background:var(--char-bubble); border-radius:8px;">
+            <input type="checkbox" id="exp-journals" checked>
+            <span style="flex:1; font-size:13px;">📔 手账拍立得照片</span>
+            <span style="font-size:11px; color:var(--text-sub);">${journalsSize}</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; padding:8px; background:var(--char-bubble); border-radius:8px;">
+            <input type="checkbox" id="exp-avatars">
+            <span style="flex:1; font-size:13px;">👤 人物头像图片</span>
+            <span style="font-size:11px; color:var(--text-sub);">通常很小</span>
+        </label>
+    `;
+
+    confirmBtn.onclick = () => {
+        const includeChatImg = document.getElementById('exp-chat-img').checked;
+        const includeStickers = document.getElementById('exp-stickers').checked;
+        const includeJournals = document.getElementById('exp-journals').checked;
+        const includeAvatars = document.getElementById('exp-avatars').checked;
+        closeAppDialog();
+        doExportBackup(includeChatImg, includeStickers, includeJournals, includeAvatars);
+    };
+
+    dialog.classList.add('open');
+}
+
+// 估算聊天记录里图片的总大小（KB）
+function estimateImagesSize(chatHistory) {
+    let total = 0;
+    chatHistory.forEach(m => {
+        if (m.mediaUrl && m.mediaUrl.startsWith('data:')) {
+            total += m.mediaUrl.length * 0.75;  // base64 大约膨胀 33%
+        }
+        if (m.base64 && m.base64.startsWith('data:')) {
+            total += m.base64.length * 0.75;
+        }
+    });
+    return formatBytes(total);
+}
+
+// 估算表情包总大小
+function estimateStickersSize(stickers) {
+    let total = 0;
+    Object.values(stickers).forEach(group => {
+        group.forEach(st => {
+            if (st.url && st.url.startsWith('data:')) {
+                total += st.url.length * 0.75;
+            }
+        });
+    });
+    return formatBytes(total);
+}
+
+// 估算手账照片总大小
+function estimateJournalsSize(journals) {
+    let total = 0;
+    Object.values(journals).forEach(entry => {
+        if (entry.images) {
+            entry.images.forEach(img => {
+                if (img && img.startsWith('data:')) total += img.length * 0.75;
+            });
+        }
+        if (entry.img && entry.img.startsWith('data:')) {
+            total += entry.img.length * 0.75;
+        }
+    });
+    return formatBytes(total);
+}
+
+function formatBytes(bytes) {
+    if (bytes < 1024) return bytes.toFixed(0) + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+function doExportBackup(includeChatImg, includeStickers, includeJournals, includeAvatars) {
+    // 深拷贝一份 appData 防止污染内存
+    const exportData = JSON.parse(JSON.stringify(appData));
+
+    // 1. 处理聊天图片
+    if (!includeChatImg) {
+        exportData.chatHistory = exportData.chatHistory.map(m => {
+            if (m.type === 'realImg' || m.type === 'aiImg') {
+                // 保留结构，把图片地址清空
+                return {
+                    ...m,
+                    mediaUrl: '',
+                    base64: '',
+                    text: m.text || '📷 [图片未导出]'
+                };
+            }
+            return m;
+        });
+    }
+
+    // 2. 处理表情包
+    if (!includeStickers) {
+        Object.keys(exportData.stickers).forEach(group => {
+            exportData.stickers[group] = exportData.stickers[group].map(st => ({
+                name: st.name,
+                url: st.url.startsWith('data:') ? '[表情包未导出]' : st.url
+            }));
+        });
+    }
+
+    // 3. 处理人物头像
+    if (!includeAvatars) {
+        ['char', 'user'].forEach(cat => {
+            exportData.personas[cat] = exportData.personas[cat].map(p => ({
+                ...p,
+                avatar: (p.avatar && p.avatar.startsWith('data:')) ? '👤' : p.avatar
+            }));
+        });
+    }
+
+    // 4. 处理手账照片
+    const exportJournals = JSON.parse(JSON.stringify(calState.journals));
+    if (!includeJournals) {
+        Object.keys(exportJournals).forEach(dateStr => {
+            if (exportJournals[dateStr].images) {
+                exportJournals[dateStr].images = exportJournals[dateStr].images.map(() => '[照片未导出]');
+            }
+            if (exportJournals[dateStr].img) {
+                exportJournals[dateStr].img = '[照片未导出]';
+            }
+        });
+    }
+
+    // 5. 打包
+    const backup = {
+        version: 2,
+        exportTime: new Date().toISOString(),
+        includeOptions: {
+            chatImg: includeChatImg,
+            stickers: includeStickers,
+            journals: includeJournals,
+            avatars: includeAvatars
+        },
+        appData: exportData,
+        calState: {
+            journals: exportJournals,
+            todos: calState.todos
+        },
+        extras: {
+            heartVoice: localStorage.getItem('sr_heart_voice') || '',
+            memo: localStorage.getItem('sr_memo') || '',
+            lockBg: localStorage.getItem('sr_lock_bg') || '',
+            activeCharId: localStorage.getItem('sr_active_char_id') || '',
+            activeUserId: localStorage.getItem('sr_active_user_id') || '',
+            fanwaiEndpoint: localStorage.getItem('sr_fanwai_endpoint') || '',
+            fanwaiKey: localStorage.getItem('sr_fanwai_key') || '',
+            fanwaiModel: localStorage.getItem('sr_fanwai_model') || '',
+            fanwaiWbIds: localStorage.getItem('sr_fanwai_wb_ids') || '[]',
+            novels: localStorage.getItem('sr_novels') || '[]'
+        }
+    };
+
+    const jsonStr = JSON.stringify(backup, null, 2);
     const blob = new Blob([jsonStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `sr_backup_${Date.now()}.json`;
+
+    // 文件名加上大小信息，方便识别
+    const sizeMB = (jsonStr.length / 1024 / 1024).toFixed(2);
+    a.download = `sr_backup_${Date.now()}_${sizeMB}MB.json`;
     a.click();
     URL.revokeObjectURL(url);
+
+    // 提示导出完成
+    setTimeout(() => {
+        openAlert(`导出完成！文件大小约 ${sizeMB} MB`);
+    }, 300);
 }
 
 function importBackupData(input) {
@@ -3291,8 +3474,41 @@ function importBackupData(input) {
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            appData = JSON.parse(e.target.result);
+            const parsed = JSON.parse(e.target.result);
+
+            // 兼容老版本备份（直接是 appData 对象）
+            if (parsed.api && parsed.chatHistory !== undefined) {
+                appData = parsed;
+            } else if (parsed.appData) {
+                // 新版本备份
+                appData = parsed.appData;
+
+                // 恢复 calState
+                if (parsed.calState) {
+                    if (parsed.calState.journals) calState.journals = parsed.calState.journals;
+                    if (parsed.calState.todos) calState.todos = parsed.calState.todos;
+                }
+
+                // 恢复 extras
+                if (parsed.extras) {
+                    const ex = parsed.extras;
+                    if (ex.heartVoice) localStorage.setItem('sr_heart_voice', ex.heartVoice);
+                    if (ex.memo !== undefined) localStorage.setItem('sr_memo', ex.memo);
+                    if (ex.lockBg) localStorage.setItem('sr_lock_bg', ex.lockBg);
+                    if (ex.activeCharId) localStorage.setItem('sr_active_char_id', ex.activeCharId);
+                    if (ex.activeUserId) localStorage.setItem('sr_active_user_id', ex.activeUserId);
+                    if (ex.fanwaiEndpoint) localStorage.setItem('sr_fanwai_endpoint', ex.fanwaiEndpoint);
+                    if (ex.fanwaiKey) localStorage.setItem('sr_fanwai_key', ex.fanwaiKey);
+                    if (ex.fanwaiModel) localStorage.setItem('sr_fanwai_model', ex.fanwaiModel);
+                    if (ex.fanwaiWbIds) localStorage.setItem('sr_fanwai_wb_ids', ex.fanwaiWbIds);
+                    if (ex.novels) localStorage.setItem('sr_novels', ex.novels);
+                }
+            } else {
+                throw new Error('备份文件格式不正确');
+            }
+
             persist();
+            persistCalendar();
             openAlert('数据已完整恢复！即将刷新...');
             location.reload();
         } catch (err) {
@@ -3820,4 +4036,37 @@ function saveFanwaiWbBinding() {
     persistFanwai();
     closeSubModal('page-fanwai-wb');
     openAlert('番外专属世界书已绑定！');
+}
+
+function showStorageUsage() {
+    let total = 0;
+    for (let key in localStorage) {
+        if (localStorage.hasOwnProperty(key)) {
+            total += (localStorage[key].length + key.length) * 2;  // UTF-16，每字符 2 字节
+        }
+    }
+    const mb = (total / 1024 / 1024).toFixed(2);
+    const percent = ((total / (5 * 1024 * 1024)) * 100).toFixed(1);
+
+    // 详细分类
+    const detail = {
+        '聊天记录': (localStorage.getItem('sr_chat_history') || '').length * 2,
+        '表情包': (localStorage.getItem('sr_stickers') || '').length * 2,
+        '手账': (localStorage.getItem('sr_journals') || '').length * 2,
+        '人设': (localStorage.getItem('sr_personas') || '').length * 2,
+        '其他': 0
+    };
+    let known = 0;
+    Object.values(detail).forEach(v => known += v);
+    detail['其他'] = total - known;
+
+    let html = `<div style="font-size:13px; line-height:1.6;">总占用：<b>${mb} MB</b> / 约 5 MB (${percent}%)</div>`;
+    html += `<div style="margin-top:8px; font-size:12px; line-height:1.8;">`;
+    Object.entries(detail).sort((a,b) => b[1]-a[1]).forEach(([k, v]) => {
+        const vmb = (v / 1024 / 1024).toFixed(2);
+        html += `<div>${k}: ${vmb} MB</div>`;
+    });
+    html += `</div>`;
+
+    openAlert(html);
 }

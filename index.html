@@ -300,8 +300,9 @@
 
                 <!-- 导出与导入：并列位于配置的最末尾 -->
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
-                    <button class="btn-action" style="padding:12px 8px; font-size:12px;" onclick="exportBackupData()">💾 导出数据备份</button>
+                    <button class="btn-action" style="padding:12px 8px; font-size:12px;" onclick="openExportOptionsDialog()">💾 导出数据备份</button>
                     <button class="btn-action secondary" style="padding:12px 8px; font-size:12px;" onclick="document.getElementById('import-file-input').click()">📂 导入恢复数据</button>
+                    <button class="btn-action secondary" style="padding:12px 8px; font-size:12px;" onclick="showStorageUsage()">📊 查看存储占用</button>
                     <input type="file" id="import-file-input" style="display:none;" accept=".json" onchange="importBackupData(this)">
                 </div>
             </div>
