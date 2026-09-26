@@ -535,6 +535,7 @@
 
 <div id="wb-tab-memory" style="display:none; flex-direction:column; gap:12px;">
     <button class="btn-action" style="background: linear-gradient(135deg, #4a72c4 0%, #2dd4bf 100%);" onclick="triggerAutoMemorySummary()">⚡ 一键提纯近期对话为记忆碎片</button>
+    
     <div class="action-card" style="padding:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:600; margin-bottom:6px;">
             <span>📦 长期记忆 (卷宗)</span>
@@ -542,13 +543,15 @@
         </div>
         <div id="long-mem-list" style="display:flex; flex-direction:column; gap:8px;"></div>
     </div>
+    
     <div class="action-card" style="padding:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:600; margin-bottom:6px;">
-        <span>🧠 中长期记忆 <span id="medium-mem-count" style="font-size:11px; color:var(--ios-blue);">0/10</span></span>
-        <button class="btn-action secondary small" onclick="openMediumMemoryEditor(null)">+ 新增</button>
+            <span>🧠 中长期记忆 <span id="medium-mem-count" style="font-size:11px; color:var(--ios-blue);">0/10</span></span>
+            <button class="btn-action secondary small" onclick="openMediumMemoryEditor(null)">+ 新增</button>
+        </div>
+        <div id="medium-mem-list" style="display:flex; flex-direction:column; gap:6px;"></div>
     </div>
-    <div id="medium-mem-list" style="display:flex; flex-direction:column; gap:6px;"></div>
-</div>
+    
     <div class="action-card" style="padding:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:600; margin-bottom:6px;">
             <span>📝 短期记忆 <span id="short-mem-count" style="font-size:11px; color:var(--ios-blue);">0/10</span></span>
@@ -556,6 +559,7 @@
         </div>
         <div id="short-mem-list" style="display:flex; flex-direction:column; gap:6px;"></div>
     </div>
+    
     <div style="display:flex; gap:6px;">
         <button class="btn-action secondary small" style="flex:1;" onclick="condenseShortToMedium()">⬇ 手动沉淀碎片→中长期</button>
         <button class="btn-action secondary small" style="flex:1;" onclick="condenseMediumToLong()">⬇ 手动编纂中长期→卷宗</button>
