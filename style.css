@@ -118,21 +118,25 @@ body {
         z-index: 9999 !important;
     }
 
-    .main-body {
-        flex: 1 !important;
-        padding-bottom: calc(56px + env(safe-area-inset-bottom, 24px)) !important;
-        overflow: hidden !important;
-    }
-    
-    .chat-input-bar, .batch-action-bar {
-        position: fixed !important;
-        bottom: calc(56px + env(safe-area-inset-bottom, 24px)) !important;
-        left: 0 !important;
-        width: 100% !important;
-        z-index: 9998 !important;
-    }
+.main-body {
+    flex: 1 !important;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 24px)) !important;
+    overflow: hidden !important;
 }
 
+.chat-input-bar, .batch-action-bar {
+    position: fixed !important;
+    bottom: calc(56px + env(safe-area-inset-bottom, 24px)) !important;
+    left: 0 !important;
+    width: 100% !important;
+    z-index: 9998 !important;
+}
+
+/* 新增：给聊天滚动区预留出输入栏高度，避免最后一条消息被遮挡 */
+#view-chat-container .chat-view {
+    padding-bottom: 70px !important;
+}
+}
 /* 顶部 Header：避开挖孔屏/刘海屏摄像头安全区 */
 .chat-header {
     background: var(--panel-bg);
@@ -243,6 +247,30 @@ body {
 .msg-row.char .msg-bubble { background: var(--char-bubble); color: var(--text-main); border-bottom-left-radius: 4px; }
 .msg-row.user .msg-bubble { background: var(--ios-blue-gradient); color: #ffffff; border-bottom-right-radius: 4px; }
 .msg-time { font-size: 9.5px; color: var(--text-sub); opacity: 0.7; white-space: nowrap; margin-bottom: 2px; flex-shrink: 0; }
+/* 语音气泡内部结构 */
+.voice-bubble-inner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 80px;
+}
+.voice-icon {
+    font-size: 14px;
+}
+.voice-wave {
+    font-size: 12px;
+    letter-spacing: -1px;
+    opacity: 0.85;
+}
+.voice-duration {
+    font-size: 11px;
+    opacity: 0.8;
+    margin-left: auto;
+}
+.voice-hidden-text {
+    word-break: break-word;
+    white-space: pre-wrap;
+}
 
 /* 严格对齐图示：深灰半透明磨砂引用悬浮条 */
 #quote-preview-bar {
