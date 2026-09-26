@@ -80,22 +80,18 @@ body {
         flex-direction: column !important;
         overflow: hidden !important;
     }
-    /* 底栏固定，main-body 给它留空间 */
-    .bottom-nav {
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        padding-bottom: calc(10px + env(safe-area-inset-bottom, 24px)) !important;
-        border-top: 0.5px solid var(--border-light) !important;
-        z-index: 99999 !important;
-    }
+/* 底栏不再固定，回归 flex 文档流，作为 .phone-container 的最后一个子项 */
+.bottom-nav {
+    flex-shrink: 0 !important;
+    z-index: 30 !important;
+}
 
-    .main-body {
-        flex: 1 !important;
-        padding-bottom: 0 !important;
-        overflow: hidden !important;
-    }
+.main-body {
+    flex: 1 !important;
+    padding-bottom: 0 !important;
+    overflow: hidden !important;
+    min-height: 0 !important;  
+}
 
     /* 输入栏回归文档流，跟随聊天页显隐 */
     .chat-input-bar, .batch-action-bar {
@@ -781,12 +777,26 @@ body.dark-mode .char-recall-detail {
 
 /* --- 锁屏覆盖层 (支持自定义壁纸 + 单击即解) --- */
 .lockscreen-overlay {
-    position: fixed;              /* 改成 fixed，永远相对视口铺满 */
+    position: fixed;
     top: 0; left: 0;
     width: 100vw;
-    height: 100dvh;               /* 覆盖整个屏幕，包括状态栏下方 */
-    ...
-    z-index: 9999;
+    height: 100dvh;
+    background-color: #0b0e14;
+    background-image: var(--lock-bg-custom, radial-gradient(circle at 50% 15%, rgba(30, 41, 69, 0.92) 0%, rgba(8, 10, 18, 0.98) 100%));
+    background-size: cover;
+    background-position: center;
+    backdrop-filter: blur(35px);
+    -webkit-backdrop-filter: blur(35px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 60px 24px 40px;
+    color: #ffffff;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+    z-index: 999999;   /* ← 关键：比 bottom-nav 的 99999 更高 */
 }
 
 /* 解锁时直接滑出屏幕并隐藏 */
