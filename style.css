@@ -172,27 +172,44 @@ body {
 .heart-voice-pop.open { display: block; }
 
 /* 主体视图区域 */
-.main-body { flex: 1; position: relative; overflow: hidden; display: flex; }
+.main-body { 
+    flex: 1 1 0% !important;
+    position: relative; 
+    overflow: hidden; 
+    display: flex; 
+    min-height: 0 !important;
+}
 .view-panel { width: 100%; height: 100%; overflow-y: auto; display: none; flex-direction: column; position: relative; }
 .view-panel.active { display: flex; }
 /* 一级 Tab 页：内容区底部为底栏留空间 */
 .view-panel {
+    padding-bottom: 0 !important;
+}
+.view-panel:not(#view-chat-container) {
     padding-bottom: calc(72px + env(safe-area-inset-bottom, 24px)) !important;
 }
 #view-chat-container {
     padding-bottom: 0 !important;
 }
 /* 聊天界面专属层级 */
-#view-chat-container { display: none; flex-direction: column; height: 100%; }
-#view-chat-container.active { display: flex; }
-#view-chat-container .chat-view {
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 24px)) !important;
+#view-chat-container {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding-bottom: 0 !important;
+}
+#view-chat-container.active {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 #view-chat-container {
     padding-bottom: 0 !important;
 }
 .chat-view {
-    flex: 1;
+    flex: 1 1 auto;
     min-height: 0;
     background-color: var(--chat-bg);
     background-image: var(--chat-bg-custom);
