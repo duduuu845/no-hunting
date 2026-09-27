@@ -67,6 +67,21 @@ function persist() {
 // 辅助延时函数，用于模拟人类一条一条跳消息的呼吸节奏
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+function importIntoWorldSettingEditor(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('ws-edit-content').value = e.target.result;
+        const titleEl = document.getElementById('ws-edit-title');
+        if (!titleEl.value.trim()) {
+            titleEl.value = file.name.replace(/\\\\.[^/.]+$/, '');
+        }
+    };
+    reader.readAsText(file);
+    input.value = '';
+}
+
 // ==================== 日历与手账数据结构 (前置声明，防止引用报错) ====================
 let calState = {
     currentYear: new Date().getFullYear(),
@@ -125,50 +140,52 @@ function unlockScreen() {
     
 // --- 4大主Tab切换 ---
 function switchMainTab(viewId, title, btn) {
-    document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.sub-page').forEach(p => p.classList.remove('open'));
-    document.querySelectorAll('.search-page').forEach(p => p.classList.remove('open'));
-    document.querySelectorAll('.modal-dialog').forEach(p => p.classList.remove('open'));
-    document.querySelectorAll('.left-drawer').forEach(p => p.classList.remove('open'));
-    document.querySelectorAll('.incoming-call-overlay').forEach(p => p.classList.remove('active'));
-    // 顺便关掉表情浮窗、加号菜单、心声浮窗，避免残留
-    const stickerPopup = document.getElementById('sticker-popup');
-    if (stickerPopup) stickerPopup.classList.remove('open');
-    if (typeof closeAllPopups === 'function') closeAllPopups();
+    try {
+        document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.sub-page').forEach(p => p.classList.remove('open'));
+        document.querySelectorAll('.search-page').forEach(p => p.classList.remove('open'));
+        document.querySelectorAll('.modal-dialog').forEach(p => p.classList.remove('open'));
+        document.querySelectorAll('.left-drawer').forEach(p => p.classList.remove('open'));
+        document.querySelectorAll('.incoming-call-overlay').forEach(p => p.classList.remove('active'));
 
-    const chatHeader = document.getElementById('chat-header');
-    const generalHeader = document.getElementById('general-header');
-    const inputBar = document.getElementById('chat-input-bar');
-    const generalMemoBtn = document.getElementById('general-memo-btn');
-    const dDayBadge = document.getElementById('anniversary-d-day');
+        const chatHeader = document.getElementById('chat-header');
+        const generalHeader = document.getElementById('general-header');
+        const inputBar = document.getElementById('chat-input-bar');
+        const generalMemoBtn = document.getElementById('general-memo-btn');
+        const dDayBadge = document.getElementById('anniversary-d-day');
 
-    if (dDayBadge) {
-        dDayBadge.style.display = (viewId === 'calendar') ? 'block' : 'none';
-    }
-
-    if (viewId === 'chat-container' || viewId === 'chat') {
-        document.getElementById('view-chat-container').classList.add('active');
-        chatHeader.style.display = 'flex';
-        generalHeader.style.display = 'none';
-        inputBar.style.display = 'flex';
-    } else {
-        const targetView = document.getElementById('view-' + viewId);
-        if (targetView) targetView.classList.add('active');
-        
-        chatHeader.style.display = 'none';
-        generalHeader.style.display = 'flex';
-        document.getElementById('general-header-title').innerText = title;
-        inputBar.style.display = 'none';
-
-        if (generalMemoBtn) {
-            generalMemoBtn.style.display = (viewId === 'calendar') ? 'flex' : 'none';
+        if (dDayBadge) {
+            dDayBadge.style.display = (viewId === 'calendar') ? 'block' : 'none';
         }
-    }
 
-    btn.classList.add('active');
-    closeAllPopups();
-    exitBatchEditMode();
+        if (viewId === 'chat-container' || viewId === 'chat') {
+            const vc = document.getElementById('view-chat-container');
+            if (vc) vc.classList.add('active');
+            if (chatHeader) chatHeader.style.display = 'flex';
+            if (generalHeader) generalHeader.style.display = 'none';
+            if (inputBar) inputBar.style.display = 'flex';
+        } else {
+            const targetView = document.getElementById('view-' + viewId);
+            if (targetView) targetView.classList.add('active');
+            if (chatHeader) chatHeader.style.display = 'none';
+            if (generalHeader) generalHeader.style.display = 'flex';
+            const titleEl = document.getElementById('general-header-title');
+            if (titleEl) titleEl.innerText = title;
+            if (inputBar) inputBar.style.display = 'none';
+
+            if (generalMemoBtn) {
+                generalMemoBtn.style.display = (viewId === 'calendar') ? 'flex' : 'none';
+            }
+        }
+
+        if (btn) btn.classList.add('active');
+
+        try { if (typeof closeAllPopups === 'function') closeAllPopups(); } catch(e) {}
+        try { if (typeof exitBatchEditMode === 'function') exitBatchEditMode(); } catch(e) {}
+    } catch(e) {
+        console.error('switchMainTab 出错:', e);
+    }
 }
 
 function toggleHeartVoice() { document.getElementById('heart-voice-pop').classList.toggle('open'); }
@@ -2336,6 +2353,32 @@ function handleAvatarFileUpload(input) {
     reader.readAsDataURL(file);
 }
 
+function handleStickerUpload(input) {
+    const files = Array.from(input.files);
+    if (!files.length) return;
+    let loaded = 0;
+    files.forEach(file => {
+        compressImage(file, 512, 0.9).then(dataUrl => {
+            appData.stickers[currentStickerPageGroup].push({
+                name: file.name.replace(/\\\\.[^/.]+$/, ""),
+                url: dataUrl
+            });
+            loaded++;
+            if (loaded === files.length) {
+                persist();
+                renderStickerPage();
+            }
+        }).catch(() => {
+            loaded++;
+            if (loaded === files.length) {
+                persist();
+                renderStickerPage();
+            }
+        });
+    });
+    input.value = '';
+}
+
 function savePersonaDetail() {
     const p = appData.personas[currentPersonaCategory].find(item => item.id === editingPersonaId);
     if (!p) return;
@@ -4275,14 +4318,34 @@ function renderWorldConfigSelects() {
     // 世界书关联
     const wbList = document.getElementById('wc-wb-list');
     if (wbList) {
-        wbList.innerHTML = appData.worldbooks.length
-            ? appData.worldbooks.map(wb => `
-                <label style="display:flex; align-items:center; gap:6px; font-size:12px;">
-                    <input type="checkbox" value="${wb.id}">
-                    <span>📖 ${wb.title}</span>
-                </label>
-            `).join('')
-            : `<div style="font-size:11px; color:var(--text-sub);">（世界书库为空）</div>`;
+        if (!appData.worldbooks.length) {
+            wbList.innerHTML = `<div style="font-size:11px; color:var(--text-sub); padding:12px; text-align:center;">（世界书库为空）</div>`;
+        } else {
+            // 按 category 分组
+            const catMap = {};
+            appData.worldbooks.forEach(wb => {
+                const cat = wb.category || "基础设定";
+                if (!catMap[cat]) catMap[cat] = [];
+                catMap[cat].push(wb);
+           });
+
+            wbList.innerHTML = Object.keys(catMap).map(cat => `
+                <div class="wb-fold-group" data-wc-cat="${cat}">
+                    <div class="wb-fold-header" onclick="this.parentElement.classList.toggle('open')">
+                        <span>📖 ${cat} (${catMap[cat].length})</span>
+                        <span style="font-size:11px; color:var(--text-sub);">▼</span>
+                    </div>
+                    <div class="wb-fold-content">
+                        ${catMap[cat].map(wb => `
+                            <label style="display:flex; align-items:center; gap:6px; font-size:12px;">
+                                <input type="checkbox" value="${wb.id}">
+                                <span>${wb.title}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
     }
 }
 
@@ -4345,8 +4408,8 @@ function renderWorldSettingList() {
 
 function editWorldSetting(id) {
     const s = id ? worldData.settings.find(x => x.id === id) : null;
-    openSubModal('page-world-setting-edit');
-    // 动态创建编辑页（如果不存在）
+
+    // 先确保页面已创建
     let page = document.getElementById('page-world-setting-edit');
     if (!page) {
         page = document.createElement('div');
@@ -4361,14 +4424,17 @@ function editWorldSetting(id) {
             <div class="sub-page-body">
                 <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
                     <label style="font-size:11px; color:var(--text-sub);">标题</label>
-                    <input type="text" class="dialog-input" id="ws-edit-title">
+                    <input type="text" class="dialog-input" id="ws-edit-title" placeholder="输入世界观标题...">
+                    <input type="file" id="ws-edit-file-import" style="display:none;" accept=".txt,.json,.md" onchange="importIntoWorldSettingEditor(this)">
+                    <button class="btn-action secondary small" onclick="document.getElementById('ws-edit-file-import').click()">📂 从文件导入正文</button>
                     <label style="font-size:11px; color:var(--text-sub); margin-top:6px;">正文</label>
-                    <textarea class="dialog-input" id="ws-edit-content" style="height:300px; line-height:1.5;"></textarea>
+                    <textarea class="dialog-input" id="ws-edit-content" style="height:300px; line-height:1.5;" placeholder="输入世界观正文..."></textarea>
                 </div>
             </div>
         `;
         document.getElementById('main-container').appendChild(page);
     }
+
     document.getElementById('ws-edit-title').value = s ? s.title : '';
     document.getElementById('ws-edit-content').value = s ? s.content : '';
     page.classList.add('open');
@@ -4387,6 +4453,21 @@ function saveWorldSetting(id) {
     persistWorldData();
     closeSubModal('page-world-setting-edit');
     renderWorldSettingList();
+}
+
+function importIntoWorldSettingEditor(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('ws-edit-content').value = e.target.result;
+        const titleEl = document.getElementById('ws-edit-title');
+        if (!titleEl.value.trim()) {
+            titleEl.value = file.name.replace(/\\.[^/.]+$/, '');
+        }
+    };
+    reader.readAsText(file);
+    input.value = '';
 }
 
 function deleteWorldSetting(id) {
@@ -4464,7 +4545,11 @@ function renderWorldPersonaList() {
         cont.innerHTML += `
             <div class="clean-item" style="padding:12px;">
                 <div class="clean-item-left" onclick="editWorldPersona('${p.id}')">
-                    <div class="persona-avatar-box" style="width:36px; height:36px; font-size:18px;">${p.avatar}</div>
+                    <div class="persona-avatar-box" style="width:36px; height:36px; font-size:18px;">
+                        ${p.avatar && p.avatar.startsWith('data:')
+                            ? `<img src="${p.avatar}" class="persona-avatar-img">`
+                            : p.avatar}
+                    </div>
                     <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
                         <span style="font-size:13px; font-weight:600;">${p.name}</span>
                         <span style="font-size:10.5px; color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.sign || '无签名'}</span>
@@ -4479,6 +4564,7 @@ function renderWorldPersonaList() {
 function editWorldPersona(id) {
     const cat = worldData.personaCategory;
     const p = id ? worldData.personas[cat].find(x => x.id === id) : null;
+
     let page = document.getElementById('page-world-persona-edit');
     if (!page) {
         page = document.createElement('div');
@@ -4491,9 +4577,18 @@ function editWorldPersona(id) {
                 <button class="btn-action small" onclick="saveWorldPersona('${id || ''}')">保存</button>
             </div>
             <div class="sub-page-body">
-                <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
-                    <label style="font-size:11px; color:var(--text-sub);">头像 emoji</label>
-                    <input type="text" class="dialog-input" id="wp-edit-avatar" placeholder="如 🐺">
+                <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:10px;">
+                    <label style="font-size:11px; color:var(--text-sub);">头像</label>
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <div class="persona-avatar-box" id="wp-edit-avatar-preview" style="width:60px; height:60px; font-size:28px;">🐺</div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button class="btn-action secondary small" onclick="document.getElementById('wp-avatar-file-upload').click()">📷 上传图片</button>
+                            <input type="file" id="wp-avatar-file-upload" style="display:none;" accept="image/*" onchange="handleWorldPersonaAvatarUpload(this)">
+                            <button class="btn-action secondary small" onclick="clearWorldPersonaAvatar()">恢复 emoji</button>
+                        </div>
+                    </div>
+                    <label style="font-size:11px; color:var(--text-sub);">或输入 emoji</label>
+                    <input type="text" class="dialog-input" id="wp-edit-avatar" placeholder="如 🐺" maxlength="4" oninput="syncWorldPersonaAvatarPreview()">
                     <label style="font-size:11px; color:var(--text-sub); margin-top:6px;">名字</label>
                     <input type="text" class="dialog-input" id="wp-edit-name">
                     <label style="font-size:11px; color:var(--text-sub); margin-top:6px;">签名（可选）</label>
@@ -4505,20 +4600,72 @@ function editWorldPersona(id) {
         `;
         document.getElementById('main-container').appendChild(page);
     }
-    document.getElementById('wp-edit-avatar').value = p ? p.avatar : '🐺';
+
+    // 存一份当前 avatar 到变量，方便上传/清除切换
+    window._wpCurrentAvatar = p ? p.avatar : '🐺';
+
+    document.getElementById('wp-edit-avatar').value = (p && !p.avatar.startsWith('data:')) ? p.avatar : '';
     document.getElementById('wp-edit-name').value = p ? p.name : '';
     document.getElementById('wp-edit-sign').value = p ? (p.sign || '') : '';
     document.getElementById('wp-edit-persona').value = p ? p.persona : '';
+    renderWorldPersonaAvatarPreview(window._wpCurrentAvatar);
     page.classList.add('open');
+}
+
+// 渲染预览（支持 emoji 或图片）
+function renderWorldPersonaAvatarPreview(avatar) {
+    const box = document.getElementById('wp-edit-avatar-preview');
+    if (!box) return;
+    if (avatar && avatar.startsWith('data:')) {
+        box.innerHTML = `<img src="${avatar}" class="persona-avatar-img">`;
+    } else {
+        box.innerHTML = avatar || '🐺';
+    }
+}
+
+// emoji 输入框实时同步预览
+function syncWorldPersonaAvatarPreview() {
+    const val = document.getElementById('wp-edit-avatar').value.trim();
+    if (val) {
+        window._wpCurrentAvatar = val;
+        renderWorldPersonaAvatarPreview(val);
+    }
+}
+
+// 上传图片作为头像
+function handleWorldPersonaAvatarUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    // 头像用 256px 就够，压成约 10~30KB
+    compressImage(file, 256, 0.82).then(dataUrl => {
+        window._wpCurrentAvatar = dataUrl;
+        renderWorldPersonaAvatarPreview(dataUrl);
+        document.getElementById('wp-edit-avatar').value = '';
+    }).catch(err => {
+        openAlert('图片处理失败：' + err.message);
+    });
+    input.value = '';
+}
+
+// 恢复 emoji 头像
+function clearWorldPersonaAvatar() {
+    window._wpCurrentAvatar = '🐺';
+    renderWorldPersonaAvatarPreview('🐺');
+    document.getElementById('wp-edit-avatar').value = '🐺';
 }
 
 function saveWorldPersona(id) {
     const cat = worldData.personaCategory;
-    const avatar = document.getElementById('wp-edit-avatar').value.trim() || '🐺';
+    const emojiInput = document.getElementById('wp-edit-avatar').value.trim();
+    // 优先用 emoji 输入框，如果为空则用 _wpCurrentAvatar（可能是图片）
+    let avatar = emojiInput || window._wpCurrentAvatar || '🐺';
+
     const name = document.getElementById('wp-edit-name').value.trim();
     const sign = document.getElementById('wp-edit-sign').value.trim();
     const persona = document.getElementById('wp-edit-persona').value.trim();
+
     if (!name) { openAlert('名字不能为空'); return; }
+
     if (id) {
         const p = worldData.personas[cat].find(x => x.id === id);
         if (p) { p.avatar = avatar; p.name = name; p.sign = sign; p.persona = persona; }
