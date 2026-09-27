@@ -228,9 +228,8 @@
 
                     <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
                         <div style="font-size:12.5px; font-weight:600;">📚 关联世界书（可多选，可选）</div>
-                        <div id="wc-wb-list" style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto;"></div>
+                        <div id="wc-wb-list" style="display:flex; flex-direction:column; gap:0; max-height:260px; overflow-y:auto; border:0.5px solid var(--border-light); border-radius:10px;"></div>
                     </div>
-
                     <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
                         <label style="font-size:11px; color:var(--text-sub);">开局场景（AI 从这里开始写）</label>
                         <textarea class="dialog-input" id="wc-opening" style="height:80px; line-height:1.5;" placeholder="描述故事怎么开始的..."></textarea>
@@ -324,7 +323,7 @@
                     <button class="btn-action" onclick="sendWorldAction(false)">生成</button>
                 </div>
             </div>
-
+        </div>
          <!-- Tab 3: 现代化日历与待办事项 -->
         <div class="view-panel" id="view-calendar">
             <!-- 上半部分：月历卡片 -->
