@@ -87,10 +87,11 @@ body {
 }
 
 .main-body {
-    flex: 1 !important;
+    flex: 1 1 0% !important;
+    display: flex !important;
     padding-bottom: 0 !important;
     overflow: hidden !important;
-    min-height: 0 !important;  
+    min-height: 0 !important;
 }
 
     /* 输入栏回归文档流，跟随聊天页显隐 */
