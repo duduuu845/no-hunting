@@ -174,10 +174,156 @@
             </div>
 
             <!-- 3. 异世界占位界面 -->
-            <div id="theater-yishijie-view" style="display:none; flex:1; justify-content:center; align-items:center; color:var(--text-sub); font-size:13px;">
-                异世界多身份模式构思中...
+            <div id="theater-yishijie-view" style="display:none; flex:1; flex-direction:column; padding:10px 14px; overflow-y:auto;">
+                <div class="action-card" style="padding:12px; margin-bottom:10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:13px; font-weight:600;">📖 我的故事存档</span>
+                        <button class="btn-action small" onclick="openWorldConfig()">＋ 新建故事</button>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn-action secondary small" onclick="openWorldSettingManager()">🌍 世界观库</button>
+                        <button class="btn-action secondary small" onclick="openWorldPersonaManager()">🎭 皮套库</button>
+                        <button class="btn-action secondary small" onclick="openWorldRandomWizard()">🎲 一键生成</button>
+                    </div>
+                </div>
+                <div id="world-archive-list" style="display:flex; flex-direction:column; gap:10px;"></div>
             </div>
-        </div>
+
+            <!-- 新建故事配置页 -->
+            <div class="sub-page" id="page-world-config">
+                <div class="sub-page-header">
+                    <button class="header-btn" onclick="closeSubModal('page-world-config')">‹ 返回</button>
+                    <span style="font-size:15px; font-weight:600;">新建故事</span>
+                    <button class="btn-action small" onclick="saveWorldConfigAndStart()">开始</button>
+                </div>
+                <div class="sub-page-body">
+                    <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+                        <label style="font-size:11px; color:var(--text-sub);">存档名称</label>
+                        <input type="text" class="dialog-input" id="wc-title" placeholder="给你这段冒险取个名字...">
+                    </div>
+
+                    <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:12.5px; font-weight:600;">🌍 世界观</span>
+                            <button class="btn-action secondary small" onclick="openWorldSettingManager()">管理</button>
+                        </div>
+                        <select class="dialog-input" id="wc-world-select"></select>
+                    </div>
+
+                    <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:12.5px; font-weight:600;">🎭 CHAR 皮套</span>
+                            <button class="btn-action secondary small" onclick="openWorldPersonaManager('char')">管理</button>
+                        </div>
+                        <select class="dialog-input" id="wc-char-select"></select>
+                    </div>
+
+                    <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:12.5px; font-weight:600;">🦊 USER 皮套</span>
+                            <button class="btn-action secondary small" onclick="openWorldPersonaManager('user')">管理</button>
+                        </div>
+                        <select class="dialog-input" id="wc-user-select"></select>
+                    </div>
+
+                    <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+                        <div style="font-size:12.5px; font-weight:600;">📚 关联世界书（可多选，可选）</div>
+                        <div id="wc-wb-list" style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto;"></div>
+                    </div>
+
+                    <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+                        <label style="font-size:11px; color:var(--text-sub);">开局场景（AI 从这里开始写）</label>
+                        <textarea class="dialog-input" id="wc-opening" style="height:80px; line-height:1.5;" placeholder="描述故事怎么开始的..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 世界观库管理页 -->
+            <div class="sub-page" id="page-world-setting-mgr">
+                <div class="sub-page-header">
+                    <button class="header-btn" onclick="closeSubModal('page-world-setting-mgr')">‹ 返回</button>
+                    <span style="font-size:15px; font-weight:600;">🌍 世界观库</span>
+                    <button class="btn-action small" onclick="editWorldSetting(null)">＋ 新建</button>
+                </div>
+                <div class="sub-page-body">
+                    <div style="display:flex; gap:6px;">
+                        <input type="file" id="ws-import-file" style="display:none;" accept=".txt,.json,.md" onchange="importWorldSettingFile(this)">
+                        <button class="btn-action secondary small" onclick="document.getElementById('ws-import-file').click()">📂 导入文件</button>
+                        <button class="btn-action secondary small" onclick="exportWorldSettings()">💾 导出全部</button>
+                    </div>
+                    <div id="world-setting-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+                </div>
+            </div>
+
+            <!-- 皮套库管理页 -->
+            <div class="sub-page" id="page-world-persona-mgr">
+                <div class="sub-page-header">
+                    <button class="header-btn" onclick="closeSubModal('page-world-persona-mgr')">‹ 返回</button>
+                    <span style="font-size:15px; font-weight:600;">🎭 皮套库</span>
+                    <button class="btn-action small" onclick="editWorldPersona(null)">＋ 新建</button>
+                </div>
+                <div class="sub-page-body">
+                    <div class="tab-bar" id="wp-cat-bar"></div>
+                    <div id="world-persona-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+                </div>
+            </div>
+
+            <!-- 一键生成向导 -->
+            <div class="sub-page" id="page-world-wizard">
+                <div class="sub-page-header">
+                    <button class="header-btn" onclick="closeSubModal('page-world-wizard')">‹ 返回</button>
+                    <span style="font-size:15px; font-weight:600;">🎲 一键生成</span>
+                    <span style="width:40px;"></span>
+                </div>
+                <div class="sub-page-body">
+                    <div style="font-size:12px; color:var(--text-sub); line-height:1.5;">选几个你感兴趣的方向，AI 会帮你生成世界观 + CHAR 皮套 + USER 皮套，自动存入对应的库。</div>
+
+                    <div class="action-card" style="padding:12px;">
+                        <div style="font-size:12.5px; font-weight:600; margin-bottom:6px;">🌐 世界类型</div>
+                        <div id="wiz-world-tags" class="tab-bar" style="flex-wrap:wrap;"></div>
+                    </div>
+
+                    <div class="action-card" style="padding:12px;">
+                        <div style="font-size:12.5px; font-weight:600; margin-bottom:6px;">💕 关系调性</div>
+                        <div id="wiz-relation-tags" class="tab-bar" style="flex-wrap:wrap;"></div>
+                    </div>
+
+                    <div class="action-card" style="padding:12px;">
+                        <div style="font-size:12.5px; font-weight:600; margin-bottom:6px;">🎭 角色气质</div>
+                        <div id="wiz-persona-tags" class="tab-bar" style="flex-wrap:wrap;"></div>
+                    </div>
+
+                    <div class="action-card" style="padding:12px;">
+                        <div style="font-size:12.5px; font-weight:600; margin-bottom:6px;">🔥 故事走向</div>
+                        <div id="wiz-plot-tags" class="tab-bar" style="flex-wrap:wrap;"></div>
+                    </div>
+
+                    <button class="btn-action" style="padding:14px;" onclick="runWorldWizard()">✨ 让 AI 生成</button>
+                </div>
+            </div>
+
+            <!-- 文游对话页 -->
+            <div class="sub-page" id="page-world-play" style="background:var(--bg-page); z-index:90;">
+                <div class="sub-page-header" style="background:var(--panel-bg);">
+                    <button class="header-btn" onclick="closeWorldPlay()">‹ 存档</button>
+                    <span style="font-size:15px; font-weight:600;" id="world-play-title">故事</span>
+                    <button class="header-btn" style="font-size:13px;" onclick="openWorldPlaySettings()">⋯</button>
+                </div>
+                <div id="world-play-body" style="flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:12px;"></div>
+                <div id="world-play-choices" style="padding:0 14px 8px; display:flex; flex-direction:column; gap:6px;"></div>
+                <div id="world-batch-bar" style="display:none; padding:10px 14px; background:var(--panel-bg); border-top:0.5px solid var(--border-light); align-items:center; justify-content:space-between;">
+                    <span style="font-size:12px; font-weight:600;" id="world-batch-count">已选 0 段</span>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn-action small danger" onclick="worldBatchDelete()">删除选中</button>
+                        <button class="btn-action small secondary" onclick="exitWorldBatchMode()">退出</button>
+                    </div>
+                </div>
+                <div style="padding:10px 14px 20px; background:var(--panel-bg); display:flex; gap:6px; border-top:0.5px solid var(--border-light);">
+                    <input type="text" class="dialog-input" id="world-play-input" placeholder="你想做什么？" onkeydown="if(event.key==='Enter') sendWorldAction()">
+                    <button class="btn-action secondary" onclick="sendWorldAction(true)">发送</button>
+                    <button class="btn-action" onclick="sendWorldAction(false)">生成</button>
+                </div>
+            </div>
 
          <!-- Tab 3: 现代化日历与待办事项 -->
         <div class="view-panel" id="view-calendar">
@@ -218,7 +364,66 @@
             </div>
         </div>
 
-        <!-- Tab 4: 设置中心 (导入导出并列放在最末尾) -->
+        <div class="view-panel" id="view-discover" style="padding:14px; gap:12px; background:var(--bg-page);">
+            <div class="menu-list">
+                <div class="menu-item" onclick="openSubModal('page-pomodoro')">
+                    <div class="menu-item-left">
+                        <span class="menu-icon">🍅</span>
+                        <div>
+                            <div class="menu-title">番茄钟 · 陪读</div>
+                            <div class="menu-sub">专注 25 分钟，TA 在旁边陪你</div>
+                        </div>
+                    </div>
+                    <span class="menu-arrow">›</span>
+                </div>
+
+                <div class="menu-item" onclick="openSubModal('page-couple-wheel')">
+                    <div class="menu-item-left">
+                        <span class="menu-icon">🎡</span>
+                        <div>
+                            <div class="menu-title">大转盘</div>
+                            <div class="menu-sub">一起选一个吧</div>
+                        </div>
+                    </div>
+                    <span class="menu-arrow">›</span>
+                </div>
+
+                <div class="menu-item" onclick="openSubModal('page-mystic')">
+                    <div class="menu-item-left">
+                        <span class="menu-icon">🔮</span>
+                        <div>
+                            <div class="menu-title">玄学大师</div>
+                            <div class="menu-sub">星座 · 塔罗 · 八字 </div>
+                        </div>
+                    </div>
+                    <span class="menu-arrow">›</span>
+                </div>
+
+                <div class="menu-item" onclick="openSubModal('page-doc-analysis')">
+                    <div class="menu-item-left">
+                        <span class="menu-icon">📄</span>
+                        <div>
+                            <div class="menu-title">文档长篇分析</div>
+                            <div class="menu-sub">上传文档，让 TA 帮你做表格、计划</div>
+                        </div>
+                    </div>
+                    <span class="menu-arrow">›</span>
+                </div>
+
+                <div class="menu-item" onclick="openSubModal('page-mini-games')">
+                    <div class="menu-item-left">
+                        <span class="menu-icon">🎮</span>
+                        <div>
+                            <div class="menu-title">小游戏</div>
+                            <div class="menu-sub">和 TA 一起玩的网页小游戏</div>
+                        </div>
+                    </div>
+                    <span class="menu-arrow">›</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 5: 设置中心 (导入导出并列放在最末尾) -->
         <div class="view-panel" id="view-settings">
             <div class="menu-list">
                 <div class="menu-item" onclick="openSubModal('page-api-setting')">
@@ -331,6 +536,10 @@
         <button class="nav-item" onclick="switchMainTab('calendar', '专属日程', this)">
             <span class="nav-icon">📅</span>
             <span>日程</span>
+        </button>
+        <button class="nav-item" onclick="switchMainTab('discover', '发现', this)">
+            <span class="nav-icon">✨</span>
+            <span>发现</span>
         </button>
         <button class="nav-item" onclick="switchMainTab('settings', '配置', this)">
             <span class="nav-icon">⚙️</span>
@@ -730,6 +939,120 @@
         </div>
     </div>
 
+<!-- ==================== 发现页 5 个子页面 ==================== -->
+
+<!-- 1. 番茄钟 -->
+<div class="sub-page" id="page-pomodoro">
+    <div class="sub-page-header">
+        <button class="header-btn" onclick="closeSubModal('page-pomodoro')">‹ 返回</button>
+        <span style="font-size:15px; font-weight:600;">🍅 番茄钟</span>
+        <span style="width:40px;"></span>
+    </div>
+    <div class="sub-page-body" id="pomodoro-body">
+        <div class="action-card" style="padding:24px 14px; display:flex; flex-direction:column; align-items:center; gap:14px;">
+            <div style="font-size:60px; font-family:'Courier New',monospace; font-weight:700; color:var(--ios-blue);" id="pomo-time-display">25:00</div>
+            <div style="font-size:12px; color:var(--text-sub);" id="pomo-phase-label">准备开始</div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-action" id="pomo-btn-start" onclick="pomoToggle()">开始</button>
+                <button class="btn-action secondary" onclick="pomoReset()">重置</button>
+            </div>
+            <div style="font-size:11px; color:var(--text-sub); margin-top:6px;">25分钟专注 + 5分钟休息，四轮后长休15分钟</div>
+        </div>
+
+        <div class="action-card" style="padding:14px;" id="pomo-chat-area">
+            <div style="font-size:12px; font-weight:600; color:var(--text-sub); margin-bottom:6px;">TA 在陪你</div>
+            <div id="pomo-char-says" style="font-size:13px; color:var(--text-main); line-height:1.5;">开始专注吧，我在这陪着你。</div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. 大转盘 -->
+<div class="sub-page" id="page-couple-wheel">
+    <div class="sub-page-header">
+        <button class="header-btn" onclick="closeSubModal('page-couple-wheel')">‹ 返回</button>
+        <span style="font-size:15px; font-weight:600;">🎡 大转盘</span>
+        <button class="btn-action small" onclick="openWheelEdit()">编辑</button>
+    </div>
+    <div class="sub-page-body">
+        <div class="action-card" style="padding:24px 14px; display:flex; flex-direction:column; align-items:center; gap:14px;">
+            <div id="wheel-display" style="width:220px; height:220px; border-radius:50%; background:conic-gradient(#ff9bae 0deg 45deg, #ffcc00 45deg 90deg, #34c759 90deg 135deg, #007aff 135deg 180deg, #a855f7 180deg 225deg, #ff6b35 225deg 270deg, #0ea5e9 270deg 315deg, #ec4899 315deg 360deg); position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+                <div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); font-size:24px;">▼</div>
+            </div>
+            <div id="wheel-result" style="font-size:15px; font-weight:600; color:var(--ios-blue); text-align:center; min-height:22px;"></div>
+            <button class="btn-action" onclick="spinWheel()">转！</button>
+        </div>
+    </div>
+</div>
+
+<!-- 3. 玄学大师 -->
+<div class="sub-page" id="page-mystic">
+    <div class="sub-page-header">
+        <button class="header-btn" onclick="closeSubModal('page-mystic')">‹ 返回</button>
+        <span style="font-size:15px; font-weight:600;">🔮 玄学大师</span>
+        <span style="width:40px;"></span>
+    </div>
+    <div class="sub-page-body">
+        <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+            <label style="font-size:11px; color:var(--text-sub);">你想问什么？</label>
+            <select class="dialog-input" id="mystic-type">
+                <option value="tarot">塔罗抽牌</option>
+                <option value="constellation">星座运势</option>
+                <option value="bazi">八字排盘（娱乐）</option>
+                <option value="lot">今日运势</option>
+            </select>
+            <input type="text" class="dialog-input" id="mystic-question" placeholder="问题或你的信息（如生日 1995-08-12）...">
+            <button class="btn-action" onclick="runMystic()">🔮 解读</button>
+        </div>
+        <div class="action-card" style="padding:14px; display:none;" id="mystic-result-card">
+            <div style="font-size:13px; line-height:1.7; white-space:pre-wrap;" id="mystic-result"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 4. 文档长篇分析 -->
+<div class="sub-page" id="page-doc-analysis">
+    <div class="sub-page-header">
+        <button class="header-btn" onclick="closeSubModal('page-doc-analysis')">‹ 返回</button>
+        <span style="font-size:15px; font-weight:600;">📄 文档长篇分析</span>
+        <span style="width:40px;"></span>
+    </div>
+    <div class="sub-page-body">
+        <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+            <label style="font-size:11px; color:var(--text-sub);">上传文档 (txt / md / csv / json)</label>
+            <input type="file" id="doc-analysis-file" style="display:none;" accept=".txt,.md,.csv,.json" onchange="handleDocAnalysisFile(this)">
+            <button class="btn-action secondary small" onclick="document.getElementById('doc-analysis-file').click()">📂 选择文件</button>
+            <div id="doc-analysis-filename" style="font-size:11px; color:var(--text-sub);">未选择文件</div>
+            <label style="font-size:11px; color:var(--text-sub); margin-top:6px;">你想让 TA 帮你做什么？</label>
+            <textarea class="dialog-input" id="doc-analysis-prompt" style="height:70px; line-height:1.4;" placeholder="如：帮我总结要点、制定学习计划、做出待办表格..."></textarea>
+            <button class="btn-action" onclick="runDocAnalysis()">✨ 开始分析</button>
+        </div>
+        <div class="action-card" style="padding:14px; display:none;" id="doc-analysis-result-card">
+            <div style="font-size:13px; line-height:1.7; white-space:pre-wrap;" id="doc-analysis-result"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 5. 小游戏 -->
+<div class="sub-page" id="page-mini-games">
+    <div class="sub-page-header">
+        <button class="header-btn" onclick="closeSubModal('page-mini-games')">‹ 返回</button>
+        <span style="font-size:15px; font-weight:600;">🎮 小游戏</span>
+        <span style="width:40px;"></span>
+    </div>
+    <div class="sub-page-body">
+        <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+            <div style="font-size:12.5px; font-weight:600;">和 TA 一起玩</div>
+            <div style="font-size:11px; color:var(--text-sub);">选一个，让 AI 现场生成一个可玩的 HTML 小游戏。</div>
+            <div id="minigame-tags" class="tab-bar" style="flex-wrap:wrap;"></div>
+            <input type="text" class="dialog-input" id="minigame-custom" placeholder="或自己描述想要什么游戏...">
+            <button class="btn-action" onclick="runMiniGame()">🎮 生成并开始</button>
+        </div>
+        <div class="action-card" style="padding:0; display:none; overflow:hidden;" id="minigame-frame-card">
+            <iframe id="minigame-frame" style="width:100%; height:500px; border:none; display:block;"></iframe>
+        </div>
+    </div>
+</div>
+
     <!-- 调试日志中心 -->
     <div class="sub-page" id="page-token-audit">
         <div class="sub-page-header">
@@ -809,7 +1132,7 @@
                     <span>保留短期对话轮数 (上下文长度)</span>
                     <span id="val-history" style="color:var(--ios-blue); font-weight:600;">20 轮</span>
                 </div>
-                <input type="range" id="cfg-history" min="10" max="100" step="5" value="20" oninput="updateSlider('val-history', this.value + ' 轮')">
+                <input type="range" id="cfg-history" min="10" max="300" step="10" value="80" oninput="updateSlider('val-history', this.value + ' 轮')">
             </div>
         </div>
     </div>

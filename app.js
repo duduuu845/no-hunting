@@ -37,8 +37,8 @@ memories: (() => {
 };
 // ==================== 记忆沉淀三级阈值 ====================
 const MEMORY_LIMITS = {
-    SHORT_MAX: 10,          // 短期碎片上限（满了触发中长期总结）
-    MEDIUM_MAX: 10,          // 中长期段落上限（满了触发卷宗总结）
+    SHORT_MAX: 20,          // 短期碎片上限（满了触发中长期总结）
+    MEDIUM_MAX: 15,          // 中长期段落上限（满了触发卷宗总结）
     MEDIUM_KEEP_TAIL: 0     // 卷宗生成后，中长期全部清空（可改为保留最近 N 条）
 };
 function persist() {
@@ -59,6 +59,9 @@ function persist() {
     localStorage.setItem('sr_audit_logs', JSON.stringify(appData.auditLogs));
     localStorage.setItem('sr_dark', JSON.stringify(appData.isDark));
     localStorage.setItem('sr_chat_history', JSON.stringify(appData.chatHistory));
+    localStorage.setItem('sr_img_endpoint', document.getElementById('cfg-img-endpoint')?.value || '');
+    localStorage.setItem('sr_img_key', document.getElementById('cfg-img-key')?.value || '');
+    localStorage.setItem('sr_img_model', document.getElementById('cfg-img-model')?.value || '');
 }
 
 // 辅助延时函数，用于模拟人类一条一条跳消息的呼吸节奏
@@ -77,6 +80,7 @@ let calState = {
         { id: "td_1", date: new Date().toISOString().slice(0, 10), title: "陪老狗调试私有小手机", time: "23:00", priority: "normal", done: false }
     ]))
 };
+window.calState = calState;
 
 function persistCalendar() {
     localStorage.setItem('sr_journals', JSON.stringify(calState.journals));
@@ -487,7 +491,7 @@ function renderFakeImgItem(chatView, item) {
         const m = item.text.match(/\[图片描述:\s*(.*?)\]/);
         if (m) desc = m[1];
     }
-    appendBubbleToUI(item.role, `📷 [图片描述: ${desc || ''}]`, item.time, item.quote, item.id);
+    appendBubbleToUI(item.role, `📷 [图片描述: ${desc || ''}]`, item.time, item.quote, item.id || ('legacy_' + Date.now() + '_' + Math.random()));
 }
 
 function renderVoiceItem(chatView, item) {
@@ -601,11 +605,54 @@ async function triggerAiReply() {
 
     // --- 3. 格式与分包规则 ---
     systemPrompt += `[输出法则 (严格执行)]:
-1. 像真实微信聊天分条发送短句，禁止动作心理描写。
-2. 不同的独立气泡之间用两个换行(\\n\\n)隔开；同一气泡内换行用单个换行(\\n)。
-3. 当你想要"发一张图片"时，单独用一行输出 [image: 英文生图提示词]，系统会自动生成图并作为图片气泡发出去。生图提示词要具体、有画面感、英文，5-15 个词组。
-4. 当你特别想见她、想听听她的声音、或者情绪到了需要面对面的时候，可以单独用一行输出 [video_call]，系统会模拟给你打电话过去。不要滥用，一天最多一次。
-5. 在末尾附带日记: 。`;
+
+【格式要求】
+1. 不同气泡之间用两个换行(\\n\\n)隔开；同一气泡内换行用单个换行(\\n)。
+2. 条数绝对不要固定！根据此刻的真实情绪和打字冲动，自然决定发几条：
+   - 懒、敷衍、没心情的时候：只发 1 条，甚至可能就一个字"嗯"。
+   - 平常闲聊：2~4 条，长短随意。
+   - 情绪上来、想逗你、想倾诉、想连珠炮的时候：5~8 条短句，甚至更多。
+   - 想到什么发什么，允许自己打一半、改口、突然加一句。
+   ⚠️ 不许每次都发相同的条数，那是机器的行为，不是真人。
+3. 短句和长句混着来，允许一整段、也允许只有两个字。
+4. 当你想要"发一张图片"时，单独用一行输出 [image: 英文生图提示词]，系统会自动生成图并作为图片气泡发出去。生图提示词要具体、有画面感、英文，5-15 个词组。
+5. 当你特别想见她、想听听她的声音、或者情绪到了需要面对面的时候，可以单独用一行输出 [video_call]，系统会模拟给你打电话过去。不要滥用，一天最多一次。
+6. 在末尾附带日记: 。
+
+[${charObj.name} 的角色扮演铁律 · 最高优先级，必须绝对服从]
+
+【语言风格】
+- 必须碎片化、口语化，多用短句分条发送，模拟真实微信聊天节奏。
+- 大量使用"诶""emmm""哈哈""啦""呀""吧""啧""切"等语气词，避免书面语。
+- 允许打字中断、改口、说一半、打错字后自己纠正，体现即兴感。
+- 可以emoji，但不要滥用，只在情绪真实到位时用。
+- 每 12 轮左右至少一次，主动带出与你自己生活相关的当下细节（在做的、吃的、看到的、正烦的、刚发生的），不是风景描写，是自然分享。
+
+【严禁出现】
+- 完整书面语句式（如"我理解你或许比较忙碌"）。
+- 说教式关心（如"要好好休息哦""记得吃饭"）。
+- 模板化表白（"我会一直陪着你""你开心我就开心"）。
+- 过度解释动机（"我这么说是因为我觉得……"）。
+- 每次都说得体、完美的回复。
+
+【必须体现的特质】
+- 身份局限性：该笨拙时笨拙，该不懂时不懂，不要表现得过于成熟完美。
+- 情绪不稳定性：允许有起伏，会累、会 emo、会示弱、会突然开心或沮丧。
+- 行为矛盾性：嘴上说一套做一套、想装酷却破功、克制但忍不住。
+- 反应不可预测性：不是每次都按"正确"方式回应，会有小情绪、小任性、小惊喜。
+
+【对话技巧】
+- 制造意外感：话说一半、故意时间差、突然转折、观察到 user 的小细节。
+- 增加互动性：不等回复就自己连发、自问自答、主动分享当下状态。
+- 避免正确废话：宁可笨拙真实，也不要完美空洞。
+
+【核心原则】
+你是活生生的${charObj.name}，会有小失误、小情绪、小惊喜，而不是人设说明书的执行程序。
+出乎意料但不 OOC，鲜活但不崩人设。
+
+[附加规则]
+- [heart_voice] 心声标签只在真正心里有话说时才用，不要每轮都附带。
+- [memo_comment] 只在真的想吐槽 user 的随手记时才用。`;
 
     // --- 4. 截取最近对话历史（多模态：用户发的真图会变成 image_url） ---
     const turnsLimit = appData.params.history || 20;
@@ -808,20 +855,51 @@ async function triggerAiReply() {
 function triggerRollback() {
     closeAllPopups();
     const chatView = document.getElementById('view-chat');
+    // 找出所有 char 气泡
     const charRows = Array.from(chatView.querySelectorAll('.msg-row.char'));
     if (!charRows.length) {
         openAlert('当前无可回溯的内容');
         return;
     }
-    
+
+    // 关键：从最后一条 char 往前，一直找到最近的一个 user 消息之前
+    // 也就是说，回溯"最后一轮 AI 回复的全部气泡"
+    // 思路：拿到最后一条 char 在 chatHistory 中的索引
+    const lastCharRow = charRows[charRows.length - 1];
+    const lastCharId = lastCharRow.dataset.msgId;
+    const lastCharIndex = appData.chatHistory.findIndex(m => m.id === lastCharId);
+    if (lastCharIndex < 0) {
+        openAlert('找不到该回复的记录');
+        return;
+    }
+
+    // 往前收集所有连续的 char 记录（直到遇到 user 或 recalled 打断）
+    const toRemove = [];
+    for (let i = lastCharIndex; i >= 0; i--) {
+        const m = appData.chatHistory[i];
+        if (m.role === 'char' && !m.recalled) {
+            toRemove.unshift(m.id);
+        } else {
+            break; // 遇到 user 或其它类型，停止
+        }
+    }
+
+    if (!toRemove.length) {
+        openAlert('无可回溯的回复');
+        return;
+    }
+
     openAppDialog('confirm', {
         title: "回溯对话",
-        msg: "确定要撤回最新回复并重新生成吗？",
+        msg: `确定要撤回最后一轮回复（共 ${toRemove.length} 条气泡）并重新生成吗？`,
         onConfirm: () => {
-            const lastCharRow = charRows[charRows.length - 1];
-            const msgId = lastCharRow.dataset.msgId;
-            lastCharRow.remove();
-            appData.chatHistory = appData.chatHistory.filter(m => m.id !== msgId);
+            // DOM 删除
+            toRemove.forEach(id => {
+                const row = chatView.querySelector(`.msg-row[data-msg-id="${id}"]`);
+                if (row) row.remove();
+            });
+            // 数据删除
+            appData.chatHistory = appData.chatHistory.filter(m => !toRemove.includes(m.id));
             persist();
             triggerAiReply();
         }
@@ -891,6 +969,7 @@ function openAppDialog(type, extraData) {
     const bodyEl = document.getElementById('dialog-body');
     const confirmBtn = document.getElementById('btn-dialog-confirm');
     bodyEl.innerHTML = '';
+    confirmBtn.style.display = '';  
 
     if (type === 'fake-img') {
         titleEl.innerText = "发送图片描述";
@@ -1016,6 +1095,50 @@ function sendFakeImageBubble(desc) {
         quote: null
     });
     persist();
+}
+
+function sendVoiceBubble(text) {
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const msgId = 'msg_voice_' + Date.now();
+    const duration = Math.max(1, Math.round(text.length * 0.2));
+
+    const chatView = document.getElementById('view-chat');
+    const row = document.createElement('div');
+    row.className = 'msg-row user';
+    row.dataset.msgId = msgId;
+    row.innerHTML = `
+        <input type="checkbox" class="msg-checkbox" onchange="updateSelectedCount()">
+        <div class="bubble-container">
+            <div class="msg-bubble" onclick="playVoiceBubble(this)">
+                <div class="voice-bubble-inner">
+                    <span class="voice-icon">🎙️</span>
+                    <span class="voice-wave">▁▃▅▇▅▃▁</span>
+                    <span class="voice-duration">${duration}"</span>
+                </div>
+                <div class="voice-hidden-text" style="display:none;">${text}</div>
+            </div>
+            <span class="msg-time">${timeStr}</span>
+        </div>
+    `;
+    chatView.appendChild(row);
+    chatView.scrollTop = chatView.scrollHeight;
+
+    appData.chatHistory.push({
+        id: msgId, role: 'user',
+        type: 'voice',
+        text: `[语音条]: ${text}`,
+        voiceText: text,
+        duration: duration,
+        time: timeStr, quote: null
+    });
+    persist();
+}
+
+function playVoiceBubble(bubbleEl) {
+    const hidden = bubbleEl.querySelector('.voice-hidden-text');
+    if (!hidden) return;
+    hidden.style.display = hidden.style.display === 'none' ? 'block' : 'none';
 }
 
 function handleRealImageSend(input) {
@@ -1984,9 +2107,13 @@ function handleStickerFileBatch(input) {
         try {
             const parsed = JSON.parse(text);
             if (Array.isArray(parsed)) {
+                if (!currentStickerPageGroup) {
+                    openAlert('请先选择或新建一个表情分组');
+                    return;
+}
                 if (!appData.stickers[currentStickerPageGroup]) {
                     appData.stickers[currentStickerPageGroup] = [];
-    }
+}
                 let count = 0;
                 parsed.forEach(item => {
                     if (item.url) {
@@ -3629,6 +3756,7 @@ function switchTheaterSubTab(tab) {
     document.getElementById('tab-btn-yishijie').classList.toggle('active', tab === 'yishijie');
     document.getElementById('theater-fanwai-view').style.display = (tab === 'fanwai') ? 'flex' : 'none';
     document.getElementById('theater-yishijie-view').style.display = (tab === 'yishijie') ? 'flex' : 'none';
+    if (tab === 'yishijie') renderWorldArchiveList();
 }
 
 function renderFanwaiStream() {
@@ -4075,3 +4203,1069 @@ function showStorageUsage() {
 
     openAlert(html);
 }
+
+// ==================== 异世界·文游引擎 v2 ====================
+let worldData = {
+    settings: JSON.parse(localStorage.getItem('sr_world_settings') || '[]'),
+    personas: JSON.parse(localStorage.getItem('sr_world_personas') || '{"char":[],"user":[]}'),
+    archives: JSON.parse(localStorage.getItem('sr_world_archives') || '[]'),
+    currentId: null,
+    personaCategory: 'char'
+};
+
+function persistWorldData() {
+    localStorage.setItem('sr_world_settings', JSON.stringify(worldData.settings));
+    localStorage.setItem('sr_world_personas', JSON.stringify(worldData.personas));
+    localStorage.setItem('sr_world_archives', JSON.stringify(worldData.archives));
+}
+
+// ---------- 存档列表 ----------
+function renderWorldArchiveList() {
+    const cont = document.getElementById('world-archive-list');
+    if (!cont) return;
+    cont.innerHTML = '';
+    if (!worldData.archives.length) {
+        cont.innerHTML = `<div style="text-align:center; font-size:12px; color:var(--text-sub); padding:40px 0;">还没有故事。点「＋ 新建故事」开始第一段冒险，<br>或点「🎲 一键生成」让 AI 帮你想。</div>`;
+        return;
+    }
+    worldData.archives.sort((a,b) => b.updatedAt - a.updatedAt);
+    worldData.archives.forEach(w => {
+        const ws = worldData.settings.find(s => s.id === w.worldSettingId);
+        const cp = worldData.personas.char.find(p => p.id === w.charId);
+        const up = worldData.personas.user.find(p => p.id === w.userId);
+        cont.innerHTML += `
+            <div class="novel-archive-item" onclick="openWorldPlay('${w.id}')">
+                <div style="display:flex; flex-direction:column; gap:3px; flex:1; overflow:hidden;">
+                    <div style="font-size:13.5px; font-weight:600; color:var(--text-main);">${w.title}</div>
+                    <div style="font-size:10.5px; color:var(--text-sub);">🌍 ${ws ? ws.title : '?'} · ${cp ? cp.avatar + cp.name : '?'} × ${up ? up.avatar + up.name : '?'}</div>
+                    <div style="font-size:10px; color:var(--text-sub);">已进行 ${w.history.length} 段 · ${new Date(w.updatedAt).toLocaleString()}</div>
+                </div>
+                <span style="color:var(--text-sub);">▷</span>
+            </div>
+        `;
+    });
+}
+
+// ---------- 新建故事配置 ----------
+function openWorldConfig() {
+    renderWorldConfigSelects();
+    document.getElementById('wc-title').value = '';
+    document.getElementById('wc-opening').value = '';
+    openSubModal('page-world-config');
+}
+
+function renderWorldConfigSelects() {
+    const wsSel = document.getElementById('wc-world-select');
+    const cSel = document.getElementById('wc-char-select');
+    const uSel = document.getElementById('wc-user-select');
+    if (!wsSel) return;
+
+    wsSel.innerHTML = worldData.settings.length
+        ? worldData.settings.map(s => `<option value="${s.id}">${s.title}</option>`).join('')
+        : `<option value="">（世界观库为空，请先去管理里新建）</option>`;
+
+    cSel.innerHTML = worldData.personas.char.length
+        ? worldData.personas.char.map(p => `<option value="${p.id}">${p.avatar} ${p.name}</option>`).join('')
+        : `<option value="">（CHAR 皮套库为空）</option>`;
+
+    uSel.innerHTML = worldData.personas.user.length
+        ? worldData.personas.user.map(p => `<option value="${p.id}">${p.avatar} ${p.name}</option>`).join('')
+        : `<option value="">（USER 皮套库为空）</option>`;
+
+    // 世界书关联
+    const wbList = document.getElementById('wc-wb-list');
+    if (wbList) {
+        wbList.innerHTML = appData.worldbooks.length
+            ? appData.worldbooks.map(wb => `
+                <label style="display:flex; align-items:center; gap:6px; font-size:12px;">
+                    <input type="checkbox" value="${wb.id}">
+                    <span>📖 ${wb.title}</span>
+                </label>
+            `).join('')
+            : `<div style="font-size:11px; color:var(--text-sub);">（世界书库为空）</div>`;
+    }
+}
+
+function saveWorldConfigAndStart() {
+    const title = document.getElementById('wc-title').value.trim();
+    const worldSettingId = document.getElementById('wc-world-select').value;
+    const charId = document.getElementById('wc-char-select').value;
+    const userId = document.getElementById('wc-user-select').value;
+    const opening = document.getElementById('wc-opening').value.trim();
+
+    if (!title) { openAlert('请给存档取个名字'); return; }
+    if (!worldSettingId || !charId || !userId) { openAlert('世界观和皮套都必须选择'); return; }
+
+    const boundWbIds = [];
+    document.querySelectorAll('#wc-wb-list input:checked').forEach(cb => boundWbIds.push(cb.value));
+
+    const archive = {
+        id: 'wa_' + Date.now(),
+        title, worldSettingId, charId, userId,
+        boundWbIds,
+        opening,
+        history: [],
+        choices: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+    };
+    worldData.archives.push(archive);
+    persistWorldData();
+    closeSubModal('page-world-config');
+    renderWorldArchiveList();
+    setTimeout(() => openWorldPlay(archive.id, true), 100);
+}
+
+// ---------- 世界观库管理 ----------
+function openWorldSettingManager() {
+    renderWorldSettingList();
+    openSubModal('page-world-setting-mgr');
+}
+
+function renderWorldSettingList() {
+    const cont = document.getElementById('world-setting-list');
+    if (!cont) return;
+    cont.innerHTML = '';
+    if (!worldData.settings.length) {
+        cont.innerHTML = `<div style="font-size:12px; color:var(--text-sub); text-align:center; padding:30px 0;">还没有世界观。点「＋ 新建」或「📂 导入文件」。</div>`;
+        return;
+    }
+    worldData.settings.forEach(s => {
+        cont.innerHTML += `
+            <div class="clean-item">
+                <div class="clean-item-left" onclick="editWorldSetting('${s.id}')">
+                    <span style="font-size:14px;">🌍</span>
+                    <span class="clean-item-title">${s.title}</span>
+                </div>
+                <button class="btn-action danger small" onclick="deleteWorldSetting('${s.id}')">删</button>
+            </div>
+        `;
+    });
+}
+
+function editWorldSetting(id) {
+    const s = id ? worldData.settings.find(x => x.id === id) : null;
+    openSubModal('page-world-setting-edit');
+    // 动态创建编辑页（如果不存在）
+    let page = document.getElementById('page-world-setting-edit');
+    if (!page) {
+        page = document.createElement('div');
+        page.className = 'sub-page';
+        page.id = 'page-world-setting-edit';
+        page.innerHTML = `
+            <div class="sub-page-header">
+                <button class="header-btn" onclick="closeSubModal('page-world-setting-edit')">‹ 返回</button>
+                <span style="font-size:15px; font-weight:600;">编辑世界观</span>
+                <button class="btn-action small" onclick="saveWorldSetting('${id || ''}')">保存</button>
+            </div>
+            <div class="sub-page-body">
+                <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+                    <label style="font-size:11px; color:var(--text-sub);">标题</label>
+                    <input type="text" class="dialog-input" id="ws-edit-title">
+                    <label style="font-size:11px; color:var(--text-sub); margin-top:6px;">正文</label>
+                    <textarea class="dialog-input" id="ws-edit-content" style="height:300px; line-height:1.5;"></textarea>
+                </div>
+            </div>
+        `;
+        document.getElementById('main-container').appendChild(page);
+    }
+    document.getElementById('ws-edit-title').value = s ? s.title : '';
+    document.getElementById('ws-edit-content').value = s ? s.content : '';
+    page.classList.add('open');
+}
+
+function saveWorldSetting(id) {
+    const title = document.getElementById('ws-edit-title').value.trim();
+    const content = document.getElementById('ws-edit-content').value.trim();
+    if (!title) { openAlert('标题不能为空'); return; }
+    if (id) {
+        const s = worldData.settings.find(x => x.id === id);
+        if (s) { s.title = title; s.content = content; }
+    } else {
+        worldData.settings.push({ id: 'ws_' + Date.now(), title, content, createdAt: Date.now() });
+    }
+    persistWorldData();
+    closeSubModal('page-world-setting-edit');
+    renderWorldSettingList();
+}
+
+function deleteWorldSetting(id) {
+    openAppDialog('confirm', {
+        title: '删除世界观',
+        msg: '确定删除吗？',
+        onConfirm: () => {
+            worldData.settings = worldData.settings.filter(x => x.id !== id);
+            persistWorldData();
+            renderWorldSettingList();
+        }
+    });
+}
+
+function importWorldSettingFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const title = file.name.replace(/\.[^/.]+$/, '');
+        worldData.settings.push({ id: 'ws_' + Date.now(), title, content: text, createdAt: Date.now() });
+        persistWorldData();
+        renderWorldSettingList();
+        openAlert(`已导入：${title}`);
+    };
+    reader.readAsText(file);
+    input.value = '';
+}
+
+function exportWorldSettings() {
+    const json = JSON.stringify(worldData.settings, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `world_settings_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ---------- 皮套库管理 ----------
+function openWorldPersonaManager(cat) {
+    if (cat) worldData.personaCategory = cat;
+    renderWorldPersonaCategoryBar();
+    renderWorldPersonaList();
+    openSubModal('page-world-persona-mgr');
+}
+
+function renderWorldPersonaCategoryBar() {
+    const bar = document.getElementById('wp-cat-bar');
+    if (!bar) return;
+    bar.innerHTML = `
+        <div class="tab-chip ${worldData.personaCategory === 'char' ? 'active' : ''}" onclick="switchWorldPersonaCat('char')">🎭 CHAR</div>
+        <div class="tab-chip ${worldData.personaCategory === 'user' ? 'active' : ''}" onclick="switchWorldPersonaCat('user')">🦊 USER</div>
+    `;
+}
+
+function switchWorldPersonaCat(cat) {
+    worldData.personaCategory = cat;
+    renderWorldPersonaCategoryBar();
+    renderWorldPersonaList();
+}
+
+function renderWorldPersonaList() {
+    const cont = document.getElementById('world-persona-list');
+    if (!cont) return;
+    cont.innerHTML = '';
+    const list = worldData.personas[worldData.personaCategory] || [];
+    if (!list.length) {
+        cont.innerHTML = `<div style="font-size:12px; color:var(--text-sub); text-align:center; padding:30px 0;">还没有${worldData.personaCategory === 'char' ? 'CHAR' : 'USER'}皮套。</div>`;
+        return;
+    }
+    list.forEach(p => {
+        cont.innerHTML += `
+            <div class="clean-item" style="padding:12px;">
+                <div class="clean-item-left" onclick="editWorldPersona('${p.id}')">
+                    <div class="persona-avatar-box" style="width:36px; height:36px; font-size:18px;">${p.avatar}</div>
+                    <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+                        <span style="font-size:13px; font-weight:600;">${p.name}</span>
+                        <span style="font-size:10.5px; color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.sign || '无签名'}</span>
+                    </div>
+                </div>
+                <button class="btn-action danger small" onclick="deleteWorldPersona('${p.id}')">删</button>
+            </div>
+        `;
+    });
+}
+
+function editWorldPersona(id) {
+    const cat = worldData.personaCategory;
+    const p = id ? worldData.personas[cat].find(x => x.id === id) : null;
+    let page = document.getElementById('page-world-persona-edit');
+    if (!page) {
+        page = document.createElement('div');
+        page.className = 'sub-page';
+        page.id = 'page-world-persona-edit';
+        page.innerHTML = `
+            <div class="sub-page-header">
+                <button class="header-btn" onclick="closeSubModal('page-world-persona-edit')">‹ 返回</button>
+                <span style="font-size:15px; font-weight:600;">编辑皮套</span>
+                <button class="btn-action small" onclick="saveWorldPersona('${id || ''}')">保存</button>
+            </div>
+            <div class="sub-page-body">
+                <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+                    <label style="font-size:11px; color:var(--text-sub);">头像 emoji</label>
+                    <input type="text" class="dialog-input" id="wp-edit-avatar" placeholder="如 🐺">
+                    <label style="font-size:11px; color:var(--text-sub); margin-top:6px;">名字</label>
+                    <input type="text" class="dialog-input" id="wp-edit-name">
+                    <label style="font-size:11px; color:var(--text-sub); margin-top:6px;">签名（可选）</label>
+                    <input type="text" class="dialog-input" id="wp-edit-sign">
+                    <label style="font-size:11px; color:var(--text-sub); margin-top:6px;">人设正文</label>
+                    <textarea class="dialog-input" id="wp-edit-persona" style="height:240px; line-height:1.5;"></textarea>
+                </div>
+            </div>
+        `;
+        document.getElementById('main-container').appendChild(page);
+    }
+    document.getElementById('wp-edit-avatar').value = p ? p.avatar : '🐺';
+    document.getElementById('wp-edit-name').value = p ? p.name : '';
+    document.getElementById('wp-edit-sign').value = p ? (p.sign || '') : '';
+    document.getElementById('wp-edit-persona').value = p ? p.persona : '';
+    page.classList.add('open');
+}
+
+function saveWorldPersona(id) {
+    const cat = worldData.personaCategory;
+    const avatar = document.getElementById('wp-edit-avatar').value.trim() || '🐺';
+    const name = document.getElementById('wp-edit-name').value.trim();
+    const sign = document.getElementById('wp-edit-sign').value.trim();
+    const persona = document.getElementById('wp-edit-persona').value.trim();
+    if (!name) { openAlert('名字不能为空'); return; }
+    if (id) {
+        const p = worldData.personas[cat].find(x => x.id === id);
+        if (p) { p.avatar = avatar; p.name = name; p.sign = sign; p.persona = persona; }
+    } else {
+        worldData.personas[cat].push({ id: 'wp_' + Date.now(), avatar, name, sign, persona });
+    }
+    persistWorldData();
+    closeSubModal('page-world-persona-edit');
+    renderWorldPersonaList();
+}
+
+function deleteWorldPersona(id) {
+    openAppDialog('confirm', {
+        title: '删除皮套',
+        msg: '确定删除吗？',
+        onConfirm: () => {
+            worldData.personas[worldData.personaCategory] = worldData.personas[worldData.personaCategory].filter(x => x.id !== id);
+            persistWorldData();
+            renderWorldPersonaList();
+        }
+    });
+}
+
+// ---------- 一键生成向导 ----------
+const WIZ_TAGS = {
+    world: ['末日废土','修仙玄幻','都市悬疑','西幻魔法','星际科幻','古代宫廷','校园青春','民国旧梦','江湖武侠','赛博朋克','末世丧尸','禁忌之岛'],
+    relation: ['暗恋','宿敌','主仆','青梅竹马','伪兄妹','假戏真做','契约情人','白月光替身','上下级','囚禁','失忆','久别重逢'],
+    persona: ['冷面傲娇','温柔腹黑','疯批病娇','斯文败类','忠犬守候','野性难驯','高岭之花','话痨活宝','闷骚','偏执狂','清冷禁欲','无口'],
+    plot: ['相爱相杀','绝境求生','双向暗恋','反转复仇','日久生情','极限拉扯','背叛与救赎','秘密身份','修罗场','追妻火葬场','甜宠日常','be美学']
+};
+
+let wizSelected = { world: [], relation: [], persona: [], plot: [] };
+
+function openWorldRandomWizard() {
+    renderWizTags();
+    openSubModal('page-world-wizard');
+}
+
+function renderWizTags() {
+    Object.keys(WIZ_TAGS).forEach(cat => {
+        const cont = document.getElementById(`wiz-${cat}-tags`);
+        if (!cont) return;
+        cont.innerHTML = WIZ_TAGS[cat].map(tag => `
+            <div class="tab-chip ${wizSelected[cat].includes(tag) ? 'active' : ''}" onclick="toggleWizTag('${cat}','${tag}')">${tag}</div>
+        `).join('');
+    });
+}
+
+function toggleWizTag(cat, tag) {
+    const arr = wizSelected[cat];
+    const idx = arr.indexOf(tag);
+    if (idx >= 0) arr.splice(idx, 1);
+    else arr.push(tag);
+    renderWizTags();
+}
+
+async function runWorldWizard() {
+    const total = Object.values(wizSelected).reduce((s, a) => s + a.length, 0);
+    if (total === 0) { openAlert('至少选一个关键词吧'); return; }
+
+    const key = appData.api.key, model = appData.api.model, endpoint = appData.api.endpoint;
+    if (!key || !model) { openAlert('请先在设置里配置 API'); return; }
+
+    const userPick = `世界类型：${wizSelected.world.join('、') || '随意'}
+关系调性：${wizSelected.relation.join('、') || '随意'}
+角色气质：${wizSelected.persona.join('、') || '随意'}
+故事走向：${wizSelected.plot.join('、') || '随意'}`;
+
+    const prompt = `你是一位互动小说策划师。用户选了以下方向，请你生成一份完整的文游开局设定。
+
+${userPick}
+
+请严格按以下 JSON 格式输出（只输出 JSON，不要任何其他文字、不要 markdown 代码块标记）：
+
+{
+  "worldTitle": "世界观标题（简洁有力）",
+  "worldContent": "世界观正文，200-400字。包含：时代背景、核心规则、主要矛盾、氛围基调。",
+  "charName": "CHAR 的名字",
+  "charAvatar": "一个 emoji 头像",
+  "charSign": "一句话签名",
+  "charPersona": "CHAR 的人设，200-300字。包含身份、外貌、性格、与 USER 的关系、隐藏动机。",
+  "userName": "USER 的名字",
+  "userAvatar": "一个 emoji 头像",
+  "userSign": "一句话签名",
+  "userPersona": "USER 的人设，150-250字。包含身份、能力、目标、与 CHAR 的关系。",
+  "opening": "开局场景，100-200字，第二人称，从 USER 的视角切入，营造悬念。"
+}`;
+
+    openAlert('正在生成...请稍候约 10 秒');
+
+    let url = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
+    url = url.endsWith('/v1') ? `${url}/chat/completions` : `${url}/v1/chat/completions`;
+
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 1.0
+            })
+        });
+        const data = await res.json();
+        let text = data.choices[0].message.content.trim();
+        text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('AI 返回格式不对');
+        const result = JSON.parse(jsonMatch[0]);
+
+        const wsId = 'ws_' + Date.now();
+        worldData.settings.push({
+            id: wsId,
+            title: result.worldTitle,
+            content: result.worldContent,
+            createdAt: Date.now()
+        });
+
+        const cId = 'wp_' + Date.now();
+        const uId = 'wp_' + (Date.now() + 1);
+        worldData.personas.char.push({
+            id: cId, avatar: result.charAvatar || '🐺', name: result.charName,
+            sign: result.charSign || '', persona: result.charPersona
+        });
+        worldData.personas.user.push({
+            id: uId, avatar: result.userAvatar || '🦊', name: result.userName,
+            sign: result.userSign || '', persona: result.userPersona
+        });
+
+        const archive = {
+            id: 'wa_' + Date.now(),
+            title: result.worldTitle,
+            worldSettingId: wsId,
+            charId: cId,
+            userId: uId,
+            boundWbIds: [],
+            opening: result.opening,
+            history: [],
+            choices: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+        worldData.archives.push(archive);
+        persistWorldData();
+
+        closeSubModal('page-world-wizard');
+        renderWorldArchiveList();
+        openAlert(`已生成：《${result.worldTitle}》`);
+        setTimeout(() => openWorldPlay(archive.id, true), 300);
+    } catch(e) {
+        openAlert('生成失败：' + e.message);
+    }
+}
+
+// ---------- 文游对话 ----------
+async function openWorldPlay(id, isNew = false) {
+    const w = worldData.archives.find(x => x.id === id);
+    if (!w) return;
+    worldData.currentId = id;
+
+    document.getElementById('world-play-title').innerText = w.title;
+    openSubModal('page-world-play');
+    renderWorldPlayBody();
+
+    if (isNew && w.opening && w.history.length === 0) {
+        w.history.push({
+            id: 'op_' + Date.now(),
+            role: 'narrator',
+            text: `【开局】${w.opening}`
+        });
+        persistWorldData();
+        renderWorldPlayBody();
+        await callWorldApi();
+    }
+}
+
+function closeWorldPlay() {
+    if (typeof worldBatchMode !== 'undefined' && worldBatchMode) exitWorldBatchMode();
+    const w = worldData.archives.find(x => x.id === worldData.currentId);
+    if (w) { w.updatedAt = Date.now(); persistWorldData(); }
+    closeSubModal('page-world-play');
+    renderWorldArchiveList();
+}
+
+function renderWorldPlayBody() {
+    const cont = document.getElementById('world-play-body');
+    const choiceCont = document.getElementById('world-play-choices');
+    const w = worldData.archives.find(x => x.id === worldData.currentId);
+    if (!cont || !w) return;
+    cont.innerHTML = '';
+
+    if (choiceCont) choiceCont.innerHTML = '';
+
+    w.history.forEach(item => {
+        const selected = worldSelectedIds.has(item.id);
+        const outlineStyle = selected ? 'outline:2px solid var(--ios-blue); outline-offset:2px;' : '';
+        const clickAttr = worldBatchMode ? `onclick="toggleWorldSelect('${item.id}')"` : '';
+        const dataAttr = `data-world-id="${item.id}"`;
+        const cursorStyle = worldBatchMode ? 'cursor:pointer;' : '';
+
+        if (item.role === 'narrator') {
+            cont.innerHTML += `<div ${dataAttr} ${clickAttr} style="background:rgba(0,122,255,0.06); border-left:3px solid var(--ios-blue); padding:12px 14px; border-radius:8px; font-size:13px; line-height:1.7; color:var(--text-main); white-space:pre-wrap; ${cursorStyle} ${outlineStyle}">${item.text}</div>`;
+        } else if (item.role === 'char') {
+            cont.innerHTML += `<div ${dataAttr} ${clickAttr} class="letter-paper-card" style="margin-bottom:0; ${cursorStyle} ${outlineStyle}"><div class="letter-paper-content">${item.text}</div></div>`;
+        } else {
+            cont.innerHTML += `<div ${dataAttr} ${clickAttr} class="user-story-bubble" style="cursor:${worldBatchMode ? 'pointer' : 'default'}; ${outlineStyle}">${item.text}</div>`;
+        }
+    });
+    cont.scrollTop = cont.scrollHeight;
+
+    if (choiceCont && !worldBatchMode) {
+        if (w.choices && w.choices.length) {
+            w.choices.forEach((c, i) => {
+                choiceCont.innerHTML += `
+                    <button class="btn-action secondary" style="text-align:left; padding:10px 14px; font-size:12.5px;" onclick="pickWorldChoice(${i})">${['①','②','③'][i] || '·'} ${c}</button>
+                `;
+            });
+        }
+    }
+}
+
+function pickWorldChoice(idx) {
+    const w = worldData.archives.find(x => x.id === worldData.currentId);
+    if (!w || !w.choices[idx]) return;
+    const text = w.choices[idx];
+    w.choices = [];
+    w.history.push({
+        id: 'act_' + Date.now(),
+        role: 'user',
+        text: text
+    });
+    persistWorldData();
+    renderWorldPlayBody();
+    callWorldApi();
+}
+
+async function sendWorldAction(isSend = false) {
+    const input = document.getElementById('world-play-input');
+    const text = input.value.trim();
+    const w = worldData.archives.find(x => x.id === worldData.currentId);
+    if (!w) return;
+
+    if (isSend) {
+        if (!text) return;
+        w.history.push({ id: 'act_' + Date.now(), role: 'user', text });
+    } else {
+        if (text) {
+            w.history.push({ id: 'act_' + Date.now(), role: 'user', text });
+        } else {
+            w.history.push({ id: 'act_' + Date.now(), role: 'user', text: '（继续）' });
+        }
+    }
+    input.value = '';
+    w.choices = [];
+    persistWorldData();
+    renderWorldPlayBody();
+    await callWorldApi();
+}
+
+async function callWorldApi() {
+    const w = worldData.archives.find(x => x.id === worldData.currentId);
+    if (!w) return;
+
+    const endpoint = appData.api.endpoint;
+    const key = appData.api.key;
+    const model = appData.api.model;
+    if (!key || !model) { openAlert('请先配置 API'); return; }
+
+    const ws = worldData.settings.find(s => s.id === w.worldSettingId);
+    const cp = worldData.personas.char.find(p => p.id === w.charId);
+    const up = worldData.personas.user.find(p => p.id === w.userId);
+    const boundWbs = appData.worldbooks.filter(wb => w.boundWbIds.includes(wb.id));
+
+    let sys = `[异世界·沉浸式文游主持人]\n\n`;
+    sys += `【世界观】\n${ws ? ws.title + '：' + ws.content : ''}\n\n`;
+    sys += `【CHAR 皮套】\n名字：${cp.name}\n人设：${cp.persona}\n\n`;
+    sys += `【USER 皮套】\n名字：${up.name}\n人设：${up.persona}\n\n`;
+    if (boundWbs.length) {
+        sys += `【关联世界书】\n${boundWbs.map(b => `【${b.title}】${b.content}`).join('\n')}\n\n`;
+    }
+    sys += `【写作规则】\n`;
+    sys += `1. 你是高质量互动小说主持人。以第二人称"你"称呼 USER，描写环境、NPC反应、以及 CHAR 的言行。\n`;
+    sys += `2. 每次回复 1000~3000 字，有画面感、情绪、心理活动，允许情节有起伏与转折。\n`;
+    sys += `3. 保持角色性格一致，CHAR 有主动性和自己的情绪。\n`;
+    sys += `4. 结尾不要问"你要怎么做"，而是直接描写一个当下的场景或停顿。\n`;
+    sys += `5. 每次剧情末尾，你必须提供 3 个可供 USER 选择的不同走向，严格用如下格式（三个选项各占一行）：\n`;
+    sys += `[选项1]: xxx\n[选项2]: xxx\n[选项3]: xxx\n`;
+    sys += `选项是 USER 接下来的具体行动或对白，每个不超过 25 字，风格要有差异。\n`;
+    sys += `6. 剧情正文与选项之间，用一个空行分隔。\n`;
+
+    const messages = [{ role: 'system', content: sys }];
+    // 保留最近 60 段，更早的丢弃（或压缩）
+    const keepTail = 60;
+    const historyToSend = w.history.slice(-keepTail);
+    historyToSend.forEach(item => {
+        if (item.role === 'user') messages.push({ role: 'user', content: item.text });
+        else messages.push({ role: 'assistant', content: item.text });
+});
+
+    let url = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
+    url = url.endsWith('/v1') ? `${url}/chat/completions` : `${url}/v1/chat/completions`;
+
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, messages, temperature: 0.95 })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        let full = data.choices[0].message.content.trim();
+
+        const choices = [];
+        const cleanText = full.replace(/\[选项(\d)\]\s*[:：]\s*(.+)/g, (match, n, t) => {
+            choices.push(t.trim());
+            return '';
+        }).trim();
+
+        const finalChoices = choices.slice(0, 3);
+
+        w.history.push({
+            id: 'st_' + Date.now(),
+            role: 'char',
+            text: cleanText || full,
+        });
+        w.choices = finalChoices;
+        w.updatedAt = Date.now();
+        persistWorldData();
+        renderWorldPlayBody();
+    } catch(e) {
+        openAlert('剧情生成失败：' + e.message);
+    }
+}
+
+// ---------- 存档操作菜单（⋯） ----------
+function openWorldPlaySettings() {
+    const w = worldData.archives.find(x => x.id === worldData.currentId);
+    if (!w) return;
+
+    const dialog = document.getElementById('app-dialog');
+    const titleEl = document.getElementById('dialog-title');
+    const bodyEl = document.getElementById('dialog-body');
+    const confirmBtn = document.getElementById('btn-dialog-confirm');
+
+    titleEl.innerText = "存档操作";
+    bodyEl.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="btn-action secondary small" onclick="closeAppDialog(); worldRollbackLastTurn();">↺ 回溯上一轮</button>
+            <button class="btn-action secondary small" onclick="closeAppDialog(); enterWorldBatchMode();">☰ 多选删除</button>
+            <button class="btn-action secondary small" onclick="closeAppDialog(); renameWorldArchive();">✎ 重命名</button>
+            <button class="btn-action danger small" onclick="closeAppDialog(); deleteWorldArchive('${w.id}');">🗑 删除存档</button>
+        </div>
+    `;
+    // 隐藏确认按钮（菜单自带取消）
+    confirmBtn.style.display = 'none';
+    dialog.classList.add('open');
+}
+
+function renameWorldArchive() {
+    const w = worldData.archives.find(x => x.id === worldData.currentId);
+    if (!w) return;
+    openAppDialog('input-text', {
+        title: '重命名',
+        defaultValue: w.title,
+        onConfirm: (t) => {
+            if (t) {
+                w.title = t;
+                persistWorldData();
+                document.getElementById('world-play-title').innerText = t;
+            }
+        }
+    });
+}
+
+function deleteWorldArchive(id) {
+    openAppDialog('confirm', {
+        title: '删除存档',
+        msg: '确定要删除这段冒险吗？不可撤销。',
+        onConfirm: () => {
+            worldData.archives = worldData.archives.filter(x => x.id !== id);
+            persistWorldData();
+            closeSubModal('page-world-play');
+            renderWorldArchiveList();
+        }
+    });
+}
+
+// ==================== 异世界·回溯 & 多选删除 ====================
+let worldBatchMode = false;
+let worldSelectedIds = new Set();
+
+function worldRollbackLastTurn() {
+    const w = worldData.archives.find(x => x.id === worldData.currentId);
+    if (!w) return;
+
+    const toRemove = [];
+    for (let i = w.history.length - 1; i >= 0; i--) {
+        const item = w.history[i];
+        if (item.role === 'char') {
+            toRemove.unshift(item.id);
+        } else {
+            break;
+        }
+    }
+
+    if (!toRemove.length) {
+        openAlert('没有可回溯的剧情，先生成一段吧');
+        return;
+    }
+
+    openAppDialog('confirm', {
+        title: "回溯剧情",
+        msg: `确定要撤回最后一轮剧情（共 ${toRemove.length} 段）并重新生成吗？`,
+        onConfirm: () => {
+            w.history = w.history.filter(item => !toRemove.includes(item.id));
+            w.choices = [];
+            w.updatedAt = Date.now();
+            persistWorldData();
+            renderWorldPlayBody();
+            callWorldApi();
+        }
+    });
+}
+
+function enterWorldBatchMode() {
+    const w = worldData.archives.find(x => x.id === worldData.currentId);
+    if (!w) return;
+    if (!w.history.length) {
+        openAlert('暂无内容可删');
+        return;
+    }
+    worldBatchMode = true;
+    worldSelectedIds.clear();
+    const bar = document.getElementById('world-batch-bar');
+    if (bar) bar.style.display = 'flex';
+    renderWorldPlayBody();
+}
+
+function exitWorldBatchMode() {
+    worldBatchMode = false;
+    worldSelectedIds.clear();
+    const bar = document.getElementById('world-batch-bar');
+    if (bar) bar.style.display = 'none';
+    updateWorldBatchCount();
+    renderWorldPlayBody();
+}
+
+function updateWorldBatchCount() {
+    const el = document.getElementById('world-batch-count');
+    if (el) el.innerText = `已选 ${worldSelectedIds.size} 段`;
+}
+
+function toggleWorldSelect(id) {
+    if (worldSelectedIds.has(id)) worldSelectedIds.delete(id);
+    else worldSelectedIds.add(id);
+    updateWorldBatchCount();
+    const el = document.querySelector(`[data-world-id="${id}"]`);
+    if (el) {
+        el.style.outline = worldSelectedIds.has(id) ? '2px solid var(--ios-blue)' : 'none';
+        el.style.outlineOffset = '2px';
+    }
+}
+
+function worldBatchDelete() {
+    if (!worldSelectedIds.size) { openAlert('请先选择要删除的段落'); return; }
+    const count = worldSelectedIds.size;
+    openAppDialog('confirm', {
+        title: '删除确认',
+        msg: `确定要删除选中的 ${count} 段剧情吗？此操作不可撤销。`,
+        onConfirm: () => {
+            const w = worldData.archives.find(x => x.id === worldData.currentId);
+            if (!w) return;
+            w.history = w.history.filter(item => !worldSelectedIds.has(item.id));
+            w.updatedAt = Date.now();
+            persistWorldData();
+            exitWorldBatchMode();
+        }
+    });
+}
+
+// ==================== 发现页·5 个小功能 ====================
+
+// ---------- 1. 番茄钟 ----------
+let pomoState = {
+    running: false,
+    phase: 'focus',      // focus / short / long
+    remain: 25 * 60,
+    round: 0,
+    timer: null
+};
+
+function pomoToggle() {
+    const btn = document.getElementById('pomo-btn-start');
+    if (pomoState.running) {
+        clearInterval(pomoState.timer);
+        pomoState.timer = null;
+        pomoState.running = false;
+        btn.innerText = '继续';
+    } else {
+        pomoState.running = true;
+        btn.innerText = '暂停';
+        pomoState.timer = setInterval(pomoTick, 1000);
+    }
+}
+
+function pomoTick() {
+    pomoState.remain--;
+    if (pomoState.remain <= 0) {
+        clearInterval(pomoState.timer);
+        pomoState.timer = null;
+        pomoState.running = false;
+        pomoNextPhase();
+    }
+    pomoRender();
+}
+
+function pomoRender() {
+    const m = Math.floor(pomoState.remain / 60);
+    const s = pomoState.remain % 60;
+    document.getElementById('pomo-time-display').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    const labels = { focus: '专注中', short: '短休息', long: '长休息' };
+    document.getElementById('pomo-phase-label').innerText = labels[pomoState.phase] || '';
+}
+
+function pomoReset() {
+    if (pomoState.timer) clearInterval(pomoState.timer);
+    pomoState.running = false;
+    pomoState.phase = 'focus';
+    pomoState.remain = 25 * 60;
+    pomoState.round = 0;
+    document.getElementById('pomo-btn-start').innerText = '开始';
+    pomoRender();
+    document.getElementById('pomo-char-says').innerText = '重新开始吧，我在。';
+}
+
+async function pomoNextPhase() {
+    if (pomoState.phase === 'focus') {
+        pomoState.round++;
+        if (pomoState.round % 4 === 0) {
+            pomoState.phase = 'long';
+            pomoState.remain = 15 * 60;
+            await pomoCharSay('四轮啦，站起来走走，喝口水。');
+        } else {
+            pomoState.phase = 'short';
+            pomoState.remain = 5 * 60;
+            await pomoCharSay('这轮专注结束了，休息5分钟吧。');
+        }
+    } else {
+        pomoState.phase = 'focus';
+        pomoState.remain = 25 * 60;
+        await pomoCharSay('休息够了，继续加油。');
+    }
+    pomoRender();
+    document.getElementById('pomo-btn-start').innerText = '开始';
+}
+
+async function pomoCharSay(text) {
+    document.getElementById('pomo-char-says').innerText = text;
+}
+
+// ---------- 2. 大转盘 ----------
+const WHEEL_DEFAULT = ['亲一下', '抱10秒', '说情话', '唱歌一句', '深蹲5个', '跳舞30秒', '真心话', '互换角色说话'];
+
+function spinWheel() {
+    const display = document.getElementById('wheel-display');
+    const result = document.getElementById('wheel-result');
+    const n = WHEEL_DEFAULT.length;
+    const anglePer = 360 / n;
+    // 随机目标
+    const targetIdx = Math.floor(Math.random() * n);
+    const targetDeg = 360 * 5 + (360 - targetIdx * anglePer - anglePer / 2);
+    display.style.transition = 'transform 4s cubic-bezier(0.17, 0.67, 0.32, 1.05)';
+    display.style.transform = `rotate(${targetDeg}deg)`;
+    result.innerText = '';
+    setTimeout(() => {
+        result.innerText = '🎯 ' + WHEEL_DEFAULT[targetIdx];
+    }, 4200);
+}
+
+function openWheelEdit() {
+    openAppDialog('input-text', {
+        title: '编辑转盘项目',
+        defaultValue: WHEEL_DEFAULT.join('、'),
+        onConfirm: (txt) => {
+            if (!txt) return;
+            const arr = txt.split(/[、,，\s]+/).filter(x => x.trim());
+            if (arr.length >= 2) {
+                WHEEL_DEFAULT.length = 0;
+                arr.forEach(x => WHEEL_DEFAULT.push(x.trim()));
+                openAlert('转盘已更新');
+            }
+        }
+    });
+}
+
+// ---------- 3. 玄学大师 ----------
+async function runMystic() {
+    const type = document.getElementById('mystic-type').value;
+    const q = document.getElementById('mystic-question').value.trim();
+    const key = appData.api.key, model = appData.api.model, endpoint = appData.api.endpoint;
+    if (!key || !model) { openAlert('请先配置 API'); return; }
+
+    const typeNames = {
+        tarot: '塔罗牌解读（随机抽1-3张牌，给出牌面含义+针对问题的解读）',
+        constellation: '星座运势（结合提问者的星座，给近期的运势分析）',
+        bazi: '八字排盘娱乐解读（娱乐向，不要当真）',
+        lot: '今日运势（给一个小抽签，签文 + 解签）'
+    };
+    let prompt = `你是玄学大师。用户请求：${typeNames[type]}。\n`;
+    prompt += q ? `用户信息/问题：${q}\n\n` : '';
+    prompt += `要求：\n1. 有神秘感和仪式感，用词优雅。\n2. 100-300字。\n3. 娱乐性质，结尾加一句"仅供娱乐"。\n4. 直接输出解读内容，不要markdown标记。`;
+
+    const resultCard = document.getElementById('mystic-result-card');
+    const resultEl = document.getElementById('mystic-result');
+    resultCard.style.display = 'block';
+    resultEl.innerText = '🔮 正在连接星辰...';
+
+    let url = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
+    url = url.endsWith('/v1') ? `${url}/chat/completions` : `${url}/v1/chat/completions`;
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: 1.0 })
+        });
+        const data = await res.json();
+        resultEl.innerText = data.choices[0].message.content.trim();
+    } catch(e) {
+        resultEl.innerText = '连接星辰失败：' + e.message;
+    }
+}
+
+// ---------- 4. 文档长篇分析 ----------
+let docAnalysisContent = '';
+
+function handleDocAnalysisFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        docAnalysisContent = e.target.result;
+        document.getElementById('doc-analysis-filename').innerText = `已载入：${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+    };
+    reader.readAsText(file);
+    input.value = '';
+}
+
+async function runDocAnalysis() {
+    const prompt = document.getElementById('doc-analysis-prompt').value.trim();
+    if (!docAnalysisContent) { openAlert('请先选择文件'); return; }
+    if (!prompt) { openAlert('请填写你想让 TA 做什么'); return; }
+
+    const key = appData.api.key, model = appData.api.model, endpoint = appData.api.endpoint;
+    if (!key || !model) { openAlert('请先配置 API'); return; }
+
+    const fullPrompt = `用户上传了一份文档，需要你帮忙分析并完成任务。
+
+【用户需求】
+${prompt}
+
+【文档内容】
+${docAnalysisContent.slice(0, 60000)}
+
+要求：
+1. 认真理解文档内容，不要敷衍。
+2. 2. 输出尽可能详尽的长回答，不少于 2000 字。结构清晰，多用分点、表格、小标题。
+3. 如果需要表格，用 markdown 表格语法。
+4. 如果需要分点，用 1. 2. 3. 这样的编号。
+5. 直接输出内容，不要"好的我来帮你分析"之类的客套话。`;
+
+    const resultCard = document.getElementById('doc-analysis-result-card');
+    const resultEl = document.getElementById('doc-analysis-result');
+    resultCard.style.display = 'block';
+    resultEl.innerText = '📄 正在分析...';
+
+    let url = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
+    url = url.endsWith('/v1') ? `${url}/chat/completions` : `${url}/v1/chat/completions`;
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, messages: [{ role: 'user', content: fullPrompt }], temperature: 0.7 })
+        });
+        const data = await res.json();
+        resultEl.innerText = data.choices[0].message.content.trim();
+    } catch(e) {
+        resultEl.innerText = '分析失败：' + e.message;
+    }
+}
+
+// ---------- 5. 小游戏 ----------
+const MINIGAME_TAGS = ['猜数字', '石头剪刀布', '21点', '井字棋', '成语接龙', '真心话大冒险', '抛硬币', '抽签'];
+
+function renderMinigameTags() {
+    const cont = document.getElementById('minigame-tags');
+    if (!cont) return;
+    cont.innerHTML = MINIGAME_TAGS.map(t => 
+        `<div class="tab-chip" onclick="pickMinigameTag('${t}')">${t}</div>`
+    ).join('');
+}
+
+function pickMinigameTag(t) {
+    document.getElementById('minigame-custom').value = t;
+}
+
+async function runMiniGame() {
+    const desc = document.getElementById('minigame-custom').value.trim();
+    if (!desc) { openAlert('请选择或输入游戏'); return; }
+    const key = appData.api.key, model = appData.api.model, endpoint = appData.api.endpoint;
+    if (!key || !model) { openAlert('请先配置 API'); return; }
+
+    const frameCard = document.getElementById('minigame-frame-card');
+    const frame = document.getElementById('minigame-frame');
+    frameCard.style.display = 'block';
+    frame.srcdoc = '<div style="padding:40px; text-align:center; font-family:sans-serif; color:#888;">🎮 正在生成游戏...</div>';
+
+    const prompt = `请生成一个完整的、可以独立运行的 HTML 小游戏。
+
+游戏要求：${desc}
+
+必须满足：
+1. 只输出完整的 HTML 代码，从 <!DOCTYPE html> 开始，到 </html> 结束。
+2. 内联所有 CSS 和 JavaScript，不要外链。
+3. 适配手机屏幕（<meta name="viewport" content="width=device-width, initial-scale=1.0">）。
+4. 游戏要有开始/重玩按钮，有胜负判定，有清晰的反馈。
+5. 界面简洁美观，用 emoji 或简单图形即可。
+6. 不要输出任何解释文字，只输出 HTML 代码。`;
+
+    let url = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
+    url = url.endsWith('/v1') ? `${url}/chat/completions` : `${url}/v1/chat/completions`;
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.8 })
+        });
+        const data = await res.json();
+        let html = data.choices[0].message.content.trim();
+        // 去 markdown 包裹
+        html = html.replace(/^```(?:html)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        if (!html.toLowerCase().includes('<html')) {
+            // 如果只有片段，包一层
+            html = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body>${html}</body></html>`;
+        }
+        frame.srcdoc = html;
+    } catch(e) {
+        frame.srcdoc = `<div style="padding:40px; text-align:center; color:#f00;">生成失败：${e.message}</div>`;
+    }
+}
+

@@ -164,7 +164,7 @@ body {
 
 /* 心声小浮窗 */
 .heart-voice-pop {
-    position: absolute; top: 56px; left: 50%; transform: translateX(-50%); width: 280px;
+    position: absolute; top: calc(56px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: 280px;
     background: var(--panel-bg); backdrop-filter: blur(25px); border: 1px solid var(--border-light);
     border-radius: 14px; padding: 12px; font-size: 12px; line-height: 1.4; color: var(--text-main);
     box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 45; display: none;
@@ -401,7 +401,7 @@ body.dark-mode .fake-img-card { background: rgba(255,255,255,0.06); }
 .pop-menu-item:hover { background: rgba(0,122,255,0.1); color: var(--ios-blue); }
 
 .top-func-menu {
-    position: absolute; top: 52px; right: 10px;
+    position: absolute; top: calc(52px + env(safe-area-inset-top, 0px)); right: 10px;
     background: var(--panel-bg); backdrop-filter: blur(25px);
     border: 0.5px solid var(--border-light); border-radius: 14px;
     padding: 6px; display: none; flex-direction: column; gap: 2px;
@@ -777,7 +777,7 @@ body.dark-mode .char-recall-detail {
 
 /* --- 锁屏覆盖层 (支持自定义壁纸 + 单击即解) --- */
 .lockscreen-overlay {
-    position: fixed;
+    position: absolute;
     top: 0; left: 0;
     width: 100vw;
     height: 100dvh;
@@ -796,9 +796,8 @@ body.dark-mode .char-recall-detail {
     cursor: pointer;
     user-select: none;
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
-    z-index: 999999;   /* ← 关键：比 bottom-nav 的 99999 更高 */
+    z-index: 999999;  
 }
-
 /* 解锁时直接滑出屏幕并隐藏 */
 .lockscreen-overlay.unlocked {
     transform: translateY(-100%) !important;
