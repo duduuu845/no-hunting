@@ -1,3 +1,81 @@
+// ==================== IndexedDB 图片仓库（替代 localStorage 存图片） ====================
+const ImageDB = (() => {
+    const DB_NAME = 'sr_image_store';
+    const STORE_NAME = 'images';
+    let dbPromise = null;
+
+    function getDB() {
+        if (dbPromise) return dbPromise;
+        dbPromise = new Promise((resolve, reject) => {
+            const req = indexedDB.open(DB_NAME, 1);
+            req.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME);
+                }
+            };
+            req.onsuccess = (e) => resolve(e.target.result);
+            req.onerror = (e) => reject(e.target.error);
+        });
+        return dbPromise;
+    }
+
+    async function put(key, dataUrl) {
+        const db = await getDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).put(dataUrl, key);
+            tx.oncomplete = () => resolve(key);
+            tx.onerror = (e) => reject(e.target.error);
+        });
+    }
+
+    async function get(key) {
+        const db = await getDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const req = tx.objectStore(STORE_NAME).get(key);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = (e) => reject(e.target.error);
+        });
+    }
+
+    async function del(key) {
+        const db = await getDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).delete(key);
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e.target.error);
+        });
+    }
+
+    async function clear() {
+        const db = await getDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).clear();
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e.target.error);
+        });
+    }
+
+    // 估算已用空间（新版浏览器支持）
+    async function estimate() {
+        if (navigator.storage && navigator.storage.estimate) {
+            return await navigator.storage.estimate();
+        }
+        return null;
+    }
+
+    return { put, get, del, clear, estimate };
+})();
+
+// 判断一个字符串是否是 dataURL 或 http 图片地址
+function isImageUrl(s) {
+    return typeof s === 'string' && (s.startsWith('data:image') || s.startsWith('http'));
+}
+
 // --- 核心全局持久化数据结构 (纯净出厂初始化版) ---
 let appData = {
     api: JSON.parse(localStorage.getItem('sr_api') || '{"endpoint":"https://api.openai.com/v1","key":"","model":""}'),
@@ -417,29 +495,41 @@ function sendSingleMessage() {
     cancelQuote();
 }
 
-function renderChatHistory() {
+async function renderChatHistory() {
     const chatView = document.getElementById('view-chat');
     if (!chatView) return;
     chatView.innerHTML = '';
 
-    appData.chatHistory.forEach(item => {
-        // 1. 撤回消息优先
+    // 先收集需要从 IndexedDB 取图的记录
+    const needFetch = [];
+
+    for (const item of appData.chatHistory) {
         if (item.recalled) {
             renderRecalledItem(chatView, item);
-            return;
+            continue;
         }
 
-        // 2. 按 type 分派
         switch (item.type) {
             case 'sticker':
                 renderStickerItem(chatView, item);
                 break;
             case 'realImg':
-                renderRealImgItem(chatView, item);
+            case 'aiImg': {
+                // 优先用内存里的 mediaUrl（新发的消息）；否则从 IndexedDB 取
+                if (item.mediaUrl && item.mediaUrl.startsWith('data:')) {
+                    // 旧数据兼容：还是 base64
+                    if (item.type === 'realImg') renderRealImgItem(chatView, item);
+                    else renderAiImgItem(chatView, item);
+                } else if (item.imgKey) {
+                    // 异步取图
+                    needFetch.push({ item, chatView });
+                } else {
+                    // 没有图，用占位
+                    if (item.type === 'realImg') renderRealImgItem(chatView, item);
+                    else renderAiImgItem(chatView, item);
+                }
                 break;
-            case 'aiImg':
-                renderAiImgItem(chatView, item);
-                break;
+            }
             case 'fakeImg':
                 renderFakeImgItem(chatView, item);
                 break;
@@ -450,7 +540,6 @@ function renderChatHistory() {
                 renderFileItem(chatView, item);
                 break;
             default:
-                // 兼容老的 isSticker 字段
                 if (item.isSticker && item.text && item.text.startsWith('[表情]')) {
                     const url = item.text.replace('[表情]', '');
                     renderStickerItem(chatView, { ...item, mediaUrl: url });
@@ -458,7 +547,27 @@ function renderChatHistory() {
                     appendBubbleToUI(item.role, item.text, item.time, item.quote, item.id);
                 }
         }
-    });
+    }
+
+    // 异步批量取 IndexedDB 里的图片并渲染
+    for (const { item, chatView } of needFetch) {
+        try {
+            const dataUrl = await ImageDB.get(item.imgKey);
+            if (dataUrl) {
+                if (item.type === 'realImg') {
+                    renderRealImgItem(chatView, { ...item, mediaUrl: dataUrl });
+                } else {
+                    renderAiImgItem(chatView, { ...item, mediaUrl: dataUrl });
+                }
+            } else {
+                // 找不到，占位
+                if (item.type === 'realImg') renderRealImgItem(chatView, item);
+                else renderAiImgItem(chatView, item);
+            }
+        } catch (e) {
+            console.warn('读取图片失败:', e);
+        }
+    }
 
     chatView.scrollTop = chatView.scrollHeight;
 }
@@ -488,12 +597,12 @@ function renderRealImgItem(chatView, item) {
     row.dataset.msgId = item.id;
 
     let mediaHtml = '';
-    if (item.mediaUrl && item.mediaUrl.startsWith('data:')) {
-        mediaHtml = `<img src="${item.mediaUrl}" style="max-width:160px; border-radius:12px; display:block;">`;
-    } else if (item.mediaUrl && item.mediaUrl.startsWith('http')) {
+    if (item.mediaUrl && (item.mediaUrl.startsWith('data:') || item.mediaUrl.startsWith('http'))) {
         mediaHtml = `<img src="${item.mediaUrl}" style="max-width:160px; border-radius:12px; display:block;">`;
     } else {
-        mediaHtml = `<div style="padding:20px 30px; background:var(--char-bubble); border-radius:12px; color:var(--text-sub); font-size:12px; text-align:center;">📷 图片未保存</div>`;
+        // imgKey 存在，说明图在 IndexedDB 里还没取出来，先显示"加载中"
+        const hint = item.imgKey ? '📷 图片加载中...' : '📷 图片未保存';
+        mediaHtml = `<div style="padding:20px 30px; background:var(--char-bubble); border-radius:12px; color:var(--text-sub); font-size:12px; text-align:center;">${hint}</div>`;
     }
 
     row.innerHTML = `
@@ -862,15 +971,23 @@ const userObj = appData.personas.user.find(u => u.id === activePersonaUserId)
                 const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
                 const msgId = 'msg_aiimg_' + Date.now();
 
+                // 图片存 IndexedDB
+                const imgKey = 'img_' + msgId;
+                ImageDB.put(imgKey, imgUrl).catch(err => {
+                    console.warn('IndexedDB 写入失败:', err);
+                });
+
                 appendAiImageBubble(imgUrl, timeStr, msgId);
                 appData.chatHistory.push({
                     id: msgId, role: 'char',
                     type: 'aiImg',
                     text: `📷 [${appData.contactName} 发送了一张图片]`,
-                    mediaUrl: imgUrl,
+                    mediaUrl: '',
+                    imgKey: imgKey,
                     time: timeStr, quote: null
                 });
                 persist();
+            }
             } else {
                 const now = new Date();
                 const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -1205,12 +1322,18 @@ function handleRealImageSend(input) {
         chatView.appendChild(row);
         chatView.scrollTop = chatView.scrollHeight;
 
-        // 关键修复：把 base64 一并存进历史
+        // 图片存入 IndexedDB，history 里只存 key
+        const imgKey = 'img_' + msgId;
+        ImageDB.put(imgKey, compressedBase64).catch(err => {
+            console.warn('IndexedDB 写入失败:', err);
+        });
+
         appData.chatHistory.push({
             id: msgId, role: 'user',
             type: 'realImg',
             text: `📷 [发送了一张图片]`,
-            mediaUrl: e.target.result,
+            mediaUrl: '',       // 不再直接存 base64
+            imgKey: imgKey,     // 只存 key
             time: timeStr, quote: null
         });
         persist();
@@ -1810,7 +1933,7 @@ function updateJournalLen() {
     if (wolfEl && wolfLenEl) wolfLenEl.innerText = `${wolfEl.value.length}/20`;
 }
 
-function renderPolaroidStream(images) {
+async function renderPolaroidStream(images) {
     const stream = document.getElementById('polaroid-photos-stream');
     if (!stream) return;
     stream.innerHTML = '';
@@ -1830,12 +1953,32 @@ function renderPolaroidStream(images) {
         return;
     }
 
-    images.forEach((url, idx) => {
+    for (let idx = 0; idx < images.length; idx++) {
+        let url = images[idx];
+        // 如果是 key，从 IndexedDB 取
+        if (url && !url.startsWith('data:') && !url.startsWith('http')) {
+            try {
+                const dataUrl = await ImageDB.get(url);
+                url = dataUrl || '';
+            } catch (e) {
+                url = '';
+            }
+        }
+
         stream.innerHTML += `
             <div class="polaroid-box">
                 <div class="polaroid-img-area" onclick="openPhotoSourceMenu(${idx})">
-                    <img src="${url}" class="polaroid-img" style="display:block;">
+                    ${url ? `<img src="${url}" class="polaroid-img" style="display:block;">` : `<div class="polaroid-placeholder"><span style="font-size:24px;">📷</span><span>图片加载失败</span></div>`}
                 </div>
+                <div class="polaroid-caption">第 ${idx + 1} 张故事印记</div>
+                <div class="polaroid-action-bar" style="display:flex;">
+                    <button class="btn-action secondary small" onclick="openPhotoSourceMenu(${idx})">替换</button>
+                    <button class="btn-action danger small" onclick="removePolaroidPhotoAt(${idx})">删除</button>
+                </div>
+            </div>
+        `;
+    }
+}
                 <div class="polaroid-caption">第 ${idx + 1} 张故事印记</div>
                 <div class="polaroid-action-bar" style="display:flex;">
                     <button class="btn-action secondary small" onclick="openPhotoSourceMenu(${idx})">替换</button>
@@ -1881,19 +2024,21 @@ function removePolaroidPhotoAt(idx) {
     const entry = calState.journals ? calState.journals[dateStr] : null;
     if (!entry) return;
 
-    // 1. 如果是数组形式，删掉对应索引的图片
     if (entry.images && entry.images.length > idx) {
+        const oldKey = entry.images[idx];
+        // 删 IndexedDB 里的图
+        if (oldKey && !oldKey.startsWith('data:') && !oldKey.startsWith('http')) {
+            ImageDB.del(oldKey).catch(() => {});
+        }
         entry.images.splice(idx, 1);
     }
-    // 2. 清理兼容单图字段
     if (idx === 0 || !entry.images || entry.images.length === 0) {
         entry.img = "";
     }
 
-    // 3. 数据存盘与画面重绘
     persistCalendar();
     renderPolaroidStream(entry.images || []);
-    renderCalendarGrid(); // 刷新日历上的小圆点
+    renderCalendarGrid();
     openAlert('照片已删除！');
 }
 
@@ -1911,7 +2056,7 @@ function handlePolaroidUpload(input) {
 }
 
 // 把图片存入手账数据流并刷新画面
-function setPolaroidImage(url) {
+async function setPolaroidImage(url) {
     const dateStr = calState.selectedDateStr;
     if (!calState.journals[dateStr]) {
         calState.journals[dateStr] = { images: [], foxText: "", wolfText: "" };
@@ -1919,23 +2064,31 @@ function setPolaroidImage(url) {
     const entry = calState.journals[dateStr];
     if (!entry.images) entry.images = [];
 
-    // 如果原来有旧单图兼容字段，优先收进数组
     if (entry.img && !entry.images.includes(entry.img)) {
         entry.images.push(entry.img);
         entry.img = "";
     }
 
+    // 生成一个 key 存 IndexedDB
+    const imgKey = 'polaroid_' + dateStr + '_' + Date.now();
+
     if (currentPhotoEditIndex === -1) {
-        // 新增一张拍立得
-        entry.images.push(url);
+        // 新增
+        await ImageDB.put(imgKey, url);
+        entry.images.push(imgKey);
     } else {
-        // 替换当前选中的这一张
-        entry.images[currentPhotoEditIndex] = url;
+        // 替换：删掉旧的
+        const oldKey = entry.images[currentPhotoEditIndex];
+        if (oldKey && !oldKey.startsWith('data:')) {
+            ImageDB.del(oldKey).catch(() => {});
+        }
+        await ImageDB.put(imgKey, url);
+        entry.images[currentPhotoEditIndex] = imgKey;
     }
 
     persistCalendar();
-    renderPolaroidStream(entry.images);
-    renderCalendarGrid(); // 刷新日历小圆点
+    await renderPolaroidStream(entry.images);
+    renderCalendarGrid();
 }
 function triggerNativePhotoUpload() {
     closeAppDialog();
