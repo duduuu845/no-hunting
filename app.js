@@ -972,10 +972,88 @@ const userObj = appData.personas.user.find(u => u.id === activePersonaUserId)
                 const msgId = 'msg_aiimg_' + Date.now();
 
                 // 图片存 IndexedDB
-                const imgKey = 'img_' + msgId;
-                ImageDB.put(imgKey, imgUrl).catch(err => {
-                    console.warn('IndexedDB 写入失败:', err);
-                });
+function handleRealImageSend(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const rawBase64 = e.target.result;
+
+        // 压缩到 800px，质量 0.8
+        compressDataUrl(rawBase64, 800, 0.8).then(compressedBase64 => {
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+            const msgId = 'msg_realimg_' + Date.now();
+            const chatView = document.getElementById('view-chat');
+            const row = document.createElement('div');
+            row.className = 'msg-row user';
+            row.dataset.msgId = msgId;
+            row.innerHTML = `
+                <input type="checkbox" class="msg-checkbox" onchange="updateSelectedCount()">
+                <div class="bubble-container">
+                    <div class="msg-bubble" style="background:transparent; padding:0;">
+                        <img src="${compressedBase64}" style="max-width:160px; border-radius:12px; display:block;">
+                    </div>
+                    <span class="msg-time">${timeStr}</span>
+                </div>
+            `;
+            chatView.appendChild(row);
+            chatView.scrollTop = chatView.scrollHeight;
+
+            // 图片存入 IndexedDB，history 里只存 key
+            const imgKey = 'img_' + msgId;
+            ImageDB.put(imgKey, compressedBase64).catch(err => {
+                console.warn('IndexedDB 写入失败:', err);
+            });
+
+            appData.chatHistory.push({
+                id: msgId, role: 'user',
+                type: 'realImg',
+                text: `📷 [发送了一张图片]`,
+                mediaUrl: '',       // 不再直接存 base64
+                imgKey: imgKey,     // 只存 key
+                time: timeStr, quote: null
+            });
+            persist();
+        }).catch(err => {
+            console.error('图片压缩失败:', err);
+            openAlert('图片处理失败：' + err.message);
+        });
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+}
+
+/**
+ * 工具函数：把 dataURL 压缩到指定最大边和 JPEG 质量
+ */
+function compressDataUrl(dataUrl, maxSide = 800, quality = 0.8) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            let { width, height } = img;
+            if (width > maxSide || height > maxSide) {
+                const ratio = Math.min(maxSide / width, maxSide / height);
+                width = Math.round(width * ratio);
+                height = Math.round(height * ratio);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            try {
+                const compressed = canvas.toDataURL('image/jpeg', quality);
+                resolve(compressed);
+            } catch (e) {
+                reject(e);
+            }
+        };
+        img.onerror = () => reject(new Error('图片加载失败'));
+        img.src = dataUrl;
+    });
+}
 
                 appendAiImageBubble(imgUrl, timeStr, msgId);
                 appData.chatHistory.push({
@@ -987,7 +1065,6 @@ const userObj = appData.personas.user.find(u => u.id === activePersonaUserId)
                     time: timeStr, quote: null
                 });
                 persist();
-            }
             } else {
                 const now = new Date();
                 const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
