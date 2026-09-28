@@ -33,7 +33,7 @@ memories: (() => {
     stickers: JSON.parse(localStorage.getItem('sr_stickers') || '{"默认狗头":[]}'),
     auditLogs: JSON.parse(localStorage.getItem('sr_audit_logs') || '[]'),
     isDark: JSON.parse(localStorage.getItem('sr_dark') || 'false'),
-    chatHistory: JSON.parse(localStorage.getItem('sr_chat_history') || '[]')
+    chatHistory: JSON.parse(localStorage.getItem('sr_chat_history') || '[]'),
     lastMemoCommented: localStorage.getItem('sr_last_memo_commented') || ''
 };
 // ==================== 记忆沉淀三级阈值 ====================
@@ -60,9 +60,14 @@ function persist() {
     localStorage.setItem('sr_audit_logs', JSON.stringify(appData.auditLogs));
     localStorage.setItem('sr_dark', JSON.stringify(appData.isDark));
     localStorage.setItem('sr_chat_history', JSON.stringify(appData.chatHistory));
-    localStorage.setItem('sr_img_endpoint', document.getElementById('cfg-img-endpoint')?.value || '');
-    localStorage.setItem('sr_img_key', document.getElementById('cfg-img-key')?.value || '');
-    localStorage.setItem('sr_img_model', document.getElementById('cfg-img-model')?.value || '');
+    // 只有在页面元素已存在时才覆盖，避免初始化早期把已保存的配置冲掉
+    const imgEndpointEl = document.getElementById('cfg-img-endpoint');
+    const imgKeyEl = document.getElementById('cfg-img-key');
+    const imgModelEl = document.getElementById('cfg-img-model');
+    if (imgEndpointEl) localStorage.setItem('sr_img_endpoint', imgEndpointEl.value || '');
+    if (imgKeyEl) localStorage.setItem('sr_img_key', imgKeyEl.value || '');
+    if (imgModelEl) localStorage.setItem('sr_img_model', imgModelEl.value || '');
+
     localStorage.setItem('sr_last_memo_commented', appData.lastMemoCommented || '');
 }
 
@@ -589,8 +594,12 @@ async function triggerAiReply() {
     }
 
     // --- 动态获取当前关联的角色与全部世界书 ---
-    const charObj = (appData.personas.char && appData.personas.char[0]) || { name: "宋凛", prompt: "" };
-    const userObj = (appData.personas.user && appData.personas.user[0]) || { name: "江晚星", prompt: "" };
+    const charObj = appData.personas.char.find(c => c.id === activePersonaCharId)
+                 || (appData.personas.char && appData.personas.char[0])
+                 || { name: "宋凛", prompt: "" };
+const userObj = appData.personas.user.find(u => u.id === activePersonaUserId)
+                 || (appData.personas.user && appData.personas.user[0])
+                 || { name: "江晚星", prompt: "" };
     const activeJailbreaks = (appData.jailbreaks || []).filter(jb => (appData.boundWbIds || []).includes(jb.id) && jb.enabled);
     const activeWorldbooks = (appData.worldbooks || []).filter(wb => (appData.boundWbIds || []).includes(wb.id) && wb.enabled);
 
@@ -2071,17 +2080,35 @@ window.onload = function() {
     updateLockClock();
     setInterval(updateLockClock, 10000);
 
-    document.getElementById('header-contact-name').innerText = appData.contactName;
-    document.getElementById('cfg-endpoint').value = appData.api.endpoint || 'https://api.openai.com/v1';
-    document.getElementById('cfg-key').value = appData.api.key || '';
-    document.getElementById('cfg-model').value = appData.api.model || '';
-    if (appData.api.model) document.getElementById('sub-api-status').innerText = `模型: ${appData.api.model}`;
+    const headerNameEl = document.getElementById('header-contact-name');
+    if (headerNameEl) headerNameEl.innerText = appData.contactName;
 
-    document.getElementById('cfg-temp').value = appData.params.temp || 0.85;
-    document.getElementById('val-temp').innerText = appData.params.temp || 0.85;
-    document.getElementById('cfg-history').value = appData.params.history || 20;
-    document.getElementById('val-history').innerText = (appData.params.history || 20) + ' 轮';
-    document.getElementById('sub-chat-params').innerText = `温度 ${appData.params.temp || 0.85} · 上下文 ${appData.params.history || 20}轮`;
+    const cfgEndpointEl = document.getElementById('cfg-endpoint');
+    if (cfgEndpointEl) cfgEndpointEl.value = appData.api.endpoint || 'https://api.openai.com/v1';
+
+    const cfgKeyEl = document.getElementById('cfg-key');
+    if (cfgKeyEl) cfgKeyEl.value = appData.api.key || '';
+
+    const cfgModelEl = document.getElementById('cfg-model');
+    if (cfgModelEl) cfgModelEl.value = appData.api.model || '';
+
+    const subApiStatusEl = document.getElementById('sub-api-status');
+    if (subApiStatusEl && appData.api.model) subApiStatusEl.innerText = `模型: ${appData.api.model}`;
+
+    const cfgTempEl = document.getElementById('cfg-temp');
+    if (cfgTempEl) cfgTempEl.value = appData.params.temp || 0.85;
+
+    const valTempEl = document.getElementById('val-temp');
+    if (valTempEl) valTempEl.innerText = appData.params.temp || 0.85;
+
+    const cfgHistoryEl = document.getElementById('cfg-history');
+    if (cfgHistoryEl) cfgHistoryEl.value = appData.params.history || 20;
+
+    const valHistoryEl = document.getElementById('val-history');
+    if (valHistoryEl) valHistoryEl.innerText = (appData.params.history || 20) + ' 轮';
+
+    const subChatParamsEl = document.getElementById('sub-chat-params');
+    if (subChatParamsEl) subChatParamsEl.innerText = `温度 ${appData.params.temp || 0.85} · 上下文 ${appData.params.history || 20}轮`;
 
     const memo = localStorage.getItem('sr_memo');
     if (memo) document.getElementById('memo-input').value = memo;
@@ -2481,8 +2508,12 @@ function startVideoCall(isFromChar) {
             const endpoint = appData.api.endpoint;
             const key = appData.api.key;
             const model = appData.api.model;
-            const charObj = (appData.personas.char && appData.personas.char[0]) || { name: "宋凛", prompt: "" };
-            const userObj = (appData.personas.user && appData.personas.user[0]) || { name: "江晚星", prompt: "" };
+            const charObj = appData.personas.char.find(c => c.id === activePersonaCharId)
+                         || (appData.personas.char && appData.personas.char[0])
+                         || { name: "宋凛", prompt: "" };
+            const userObj = appData.personas.user.find(u => u.id === activePersonaUserId)
+                         || (appData.personas.user && appData.personas.user[0])
+                         || { name: "江晚星", prompt: "" };
             
             let openerText = '（接通了，看着屏幕里的你）';
             
