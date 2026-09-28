@@ -111,7 +111,9 @@ let appData = {
     auditLogs: JSON.parse(localStorage.getItem('sr_audit_logs') || '[]'),
     isDark: JSON.parse(localStorage.getItem('sr_dark') || 'false'),
     chatHistory: JSON.parse(localStorage.getItem('sr_chat_history') || '[]'),
-    lastMemoCommented: localStorage.getItem('sr_last_memo_commented') || ''
+    lastMemoCommented: localStorage.getItem('sr_last_memo_commented') || '',
+    lastUserPhoto: localStorage.getItem('sr_last_user_photo') || '',
+    lastUserPhotoKey: localStorage.getItem('sr_last_user_photo_key') || ''
 };
 
 // ==================== 记忆沉淀三级阈值 ====================
@@ -141,6 +143,8 @@ function persist() {
 
     try {
         localStorage.setItem('sr_chat_history', JSON.stringify(appData.chatHistory));
+        localStorage.setItem('sr_last_user_photo', appData.lastUserPhoto || '');
+        localStorage.setItem('sr_last_user_photo_key', appData.lastUserPhotoKey || '');
     } catch (e) {
         console.warn('[persist] 聊天记录存储失败:', e.message);
     }
@@ -780,14 +784,15 @@ async function triggerAiReply() {
 1. 不同气泡之间用两个换行(\\n\\n)隔开；同一气泡内换行用单个换行(\\n)。
 2. 条数绝对不要固定！根据此刻的真实情绪和打字冲动，自然决定发几条：
    - 懒、敷衍、没心情的时候：只发 1 条，甚至可能就一个字"嗯"。
-   - 平常闲聊：2~4 条，长短随意。
+   - 平常闲聊：2~6 条，长短随意。
    - 情绪上来、想逗你、想倾诉、想连珠炮的时候：5~8 条短句，甚至更多。
    - 想到什么发什么，允许自己打一半、改口、突然加一句。
    ⚠️ 不许每次都发相同的条数，那是机器的行为，不是真人。
 3. 短句和长句混着来，允许一整段、也允许只有两个字。
 4. 当你想要"发一张图片"时，单独用一行输出 [image: 英文生图提示词]，系统会自动生成图并作为图片气泡发出去。生图提示词要具体、有画面感、英文，5-15 个词组。
-5. 当你特别想见她、想听听她的声音、或者情绪到了需要面对面的时候，可以单独用一行输出 [video_call]，系统会模拟给你打电话过去。不要滥用，一天最多一次。
-6. 【日记规则】只有当这一轮对话发生了值得记录的事（情感推进、重要事件、心情转折、特别的瞬间）才在末尾附带 [diary]...[/diary]。平常的闲聊、问候、日常斗嘴不要写日记。大约每 4~6 轮才写一次，宁缺毋滥。
+5. 当你想要发一张"包含 user 本人长相"的合照时（例如你想和她合影、想看她穿某件衣服的样子），单独用一行输出 [image_with_user: 英文生图提示词]。系统会自动把 user 最近上传的照片作为参考图传给你。提示词要写清楚场景、动作、服装、氛围，英文 5-15 个词组。
+6. 当你特别想见她、想听听她的声音、或者情绪到了需要面对面的时候，可以单独用一行输出 [video_call]，系统会模拟给你打电话过去。不要滥用，一天最多一次。
+7. 【日记规则】只有当这一轮对话发生了值得记录的事（情感推进、重要事件、心情转折、特别的瞬间）才在末尾附带 [diary]...[/diary]。平常的闲聊、问候、日常斗嘴不要写日记。大约每 4~6 轮才写一次，宁缺毋滥。
 
 [${charObj.name} 的角色扮演铁律 · 最高优先级，必须绝对服从]
 
@@ -795,7 +800,7 @@ async function triggerAiReply() {
 - 必须碎片化、口语化，多用短句分条发送，模拟真实微信聊天节奏。
 - 大量使用"诶""emmm""哈哈""啦""呀""吧""啧""切"等语气词，避免书面语。
 - 允许打字中断、改口、说一半、打错字后自己纠正，体现即兴感。
-- 可以emoji，但不要滥用，只在情绪真实到位时用。
+- 可以emoji,但不要滥用,只在情绪真实到位时用。
 - 每 12 轮左右至少一次，主动带出与你自己生活相关的当下细节。
 
 【严禁出现】
@@ -818,7 +823,7 @@ async function triggerAiReply() {
 
 【核心原则】
 你是活生生的${charObj.name}，会有小失误、小情绪、小惊喜。
-出乎意料但不 OOC，鲜活但不崩人设。
+出乎意料但不 OOC,鲜活但不崩人设。
 
 [附加规则]
 - [heart_voice]...[/heart_voice] 心声标签：这是你内心独白，是嘴上没说但心里想的。当你有"口是心非""嘴硬心软""欲言又止"的时刻，就应该用它。大约每 3~5 轮对话出现一次，不要每轮都用，但也不要永远不用。心声要简短、真实、带点你自己的小情绪。
@@ -956,6 +961,11 @@ async function triggerAiReply() {
         const imagePrompts = imageMatches.map(m => m[1].trim()).filter(p => p);
         fullReply = fullReply.replace(/\[image:\s*[^\]]*\]/gi, '').trim();
 
+        // --- 提取 AI 想发的"带 user 本人的合照" [image_with_user: 提示词] ---
+        const userImgMatches = [...fullReply.matchAll(/\[image_with_user:\s*([^\]]*)\]/gi)];
+        const userImgPrompts = userImgMatches.map(m => m[1].trim()).filter(p => p);
+        fullReply = fullReply.replace(/\[image_with_user:\s*[^\]]*\]/gi, '').trim();
+    
         // --- 提取 AI 主动发起的视频通话 [video_call] ---
         const wantsVideoCall = /\[video_call\]/i.test(fullReply);
         fullReply = fullReply.replace(/\[video_call\]/gi, '').trim();
@@ -1027,6 +1037,39 @@ async function triggerAiReply() {
                 appData.chatHistory.push({
                     id: msgId, role: 'char',
                     text: `（本来想给你发张图，但是生成失败了）`,
+                    time: timeStr, quote: null
+                });
+                persist();
+            }
+        }
+        // --- 发送"带 user 本人的合照" ---
+        for (const prompt of userImgPrompts) {
+            statusEl.innerText = "对方正在制作合照...";
+            const imgUrl = await callImageApiWithUserPhoto(prompt, true);
+            if (imgUrl) {
+                const now = new Date();
+                const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                const msgId = 'msg_userimg_' + Date.now();
+                const imgKey = 'img_' + msgId;
+                ImageDB.put(imgKey, imgUrl).catch(err => console.warn('IndexedDB 写入失败:', err));
+                appendAiImageBubble(imgUrl, timeStr, msgId);
+                appData.chatHistory.push({
+                    id: msgId, role: 'char',
+                    type: 'aiImg',
+                    text: `📷 [${appData.contactName} 发来一张合照]`,
+                    mediaUrl: '',
+                    imgKey: imgKey,
+                    time: timeStr, quote: null
+                });
+                persist();
+            } else {
+                const now = new Date();
+                const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                const msgId = 'msg_userimgfail_' + Date.now();
+                appendBubbleToUI('char', `（本来想给你做张合照，结果翻车了）`, timeStr, null, msgId);
+                appData.chatHistory.push({
+                    id: msgId, role: 'char',
+                    text: `（本来想给你做张合照，结果翻车了）`,
                     time: timeStr, quote: null
                 });
                 persist();
@@ -1366,6 +1409,9 @@ function handleRealImageSend(input) {
                 imgKey: imgKey,
                 time: timeStr, quote: null
             });
+            // 把这张图记成"用户最近的长相参考图"
+            appData.lastUserPhoto = compressedBase64;
+            appData.lastUserPhotoKey = imgKey;
             persist();
         }).catch(err => {
             console.error('图片压缩失败:', err);
@@ -2125,7 +2171,7 @@ function promptCustomGeneratePhoto() {
         placeholder: "输入画面描述...",
         onConfirm: async (desc) => {
             if (!desc) return;
-            const imgUrl = await callImageApi(desc);
+            const imgUrl = await callImageApiWithUserPhoto(desc);
             if (imgUrl) {
                 setPolaroidImage(imgUrl);
                 openAlert('照片已生成并存入手账！');
@@ -2137,8 +2183,8 @@ function promptCustomGeneratePhoto() {
 async function generateDailyStoryPhoto() {
     closeAppDialog();
     const chatMsgs = appData.chatHistory.slice(-8).map(m => m.text).join(' ');
-    const autoPrompt = `A warm romantic illustration, high quality, aesthetic: ${chatMsgs.slice(0, 120)}`;
-    const imgUrl = await callImageApi(autoPrompt);
+    const autoPrompt = `A warm romantic illustration, high quality, aesthetic, a photo of a couple together: ${chatMsgs.slice(0, 120)}`;
+    const imgUrl = await callImageApiWithUserPhoto(autoPrompt);
     if (imgUrl) {
         setPolaroidImage(imgUrl);
         openAlert('今日专属印记画作已生成！');
@@ -2197,6 +2243,73 @@ async function callImageApi(promptText, silent = false) {
         throw new Error('未收到有效的图片数据返回');
     } catch(e) {
         if (!silent) openAlert(`生图失败: ${e.message}。请检查生图模型名称与接口是否支持。`);
+        return null;
+    }
+}
+
+// ==================== 带用户照片参考的生图（用于生成合照） ====================
+async function callImageApiWithUserPhoto(promptText, silent = false) {
+    let endpoint = (document.getElementById('cfg-img-endpoint')?.value || '').trim() || appData.api.endpoint;
+    let key = (document.getElementById('cfg-img-key')?.value || '').trim() || appData.api.key;
+    let model = (document.getElementById('cfg-img-model')?.value || '').trim() || 'gpt-image-2';
+
+    if (!key) {
+        if (!silent) openAlert('请先配置生图 API Key');
+        return null;
+    }
+
+    // 拿到用户最近的照片
+    let userPhotoBase64 = appData.lastUserPhoto;
+    if (!userPhotoBase64 && appData.lastUserPhotoKey) {
+        try { userPhotoBase64 = await ImageDB.get(appData.lastUserPhotoKey); } catch(e) {}
+    }
+    if (!userPhotoBase64) {
+        if (!silent) openAlert('用户还没有发过照片，无法生成合照');
+        return null;
+    }
+
+    // 构建 edits 接口地址
+    let url = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
+    url = url.endsWith('/v1') ? `${url}/images/edits` : `${url}/v1/images/edits`;
+
+    // base64 -> Blob
+    const base64Data = userPhotoBase64.replace(/^data:image\/\w+;base64,/, "");
+    const byteCharacters = atob(base64Data);
+    const byteArray = new Uint8Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
+    const imageBlob = new Blob([byteArray], { type: 'image/png' });
+
+    if (!silent) openAlert('正在用你的照片生成合照，约 15~25 秒...');
+
+    const formData = new FormData();
+    formData.append('model', model);
+    formData.append('prompt', promptText);
+    formData.append('image', imageBlob, 'user_photo.png');
+    formData.append('size', '1024x1024');
+
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${key}` },
+            body: formData
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (data.data && data.data[0]) {
+            const resultImg = data.data[0].url ||
+                (data.data[0].b64_json ? `data:image/png;base64,${data.data[0].b64_json}` : null);
+            if (resultImg) {
+                if (resultImg.startsWith('data:')) {
+                    try { return await compressDataUrl(resultImg, 800, 0.8); }
+                    catch(e) { return resultImg; }
+                }
+                return resultImg;
+            }
+        }
+        throw new Error('未收到有效图片数据');
+    } catch(e) {
+        if (!silent) openAlert(`合照生成失败: ${e.message}。请确认生图模型支持 edits 接口。`);
         return null;
     }
 }
