@@ -34,6 +34,7 @@ memories: (() => {
     auditLogs: JSON.parse(localStorage.getItem('sr_audit_logs') || '[]'),
     isDark: JSON.parse(localStorage.getItem('sr_dark') || 'false'),
     chatHistory: JSON.parse(localStorage.getItem('sr_chat_history') || '[]')
+    lastMemoCommented: localStorage.getItem('sr_last_memo_commented') || ''
 };
 // ==================== 记忆沉淀三级阈值 ====================
 const MEMORY_LIMITS = {
@@ -62,6 +63,7 @@ function persist() {
     localStorage.setItem('sr_img_endpoint', document.getElementById('cfg-img-endpoint')?.value || '');
     localStorage.setItem('sr_img_key', document.getElementById('cfg-img-key')?.value || '');
     localStorage.setItem('sr_img_model', document.getElementById('cfg-img-model')?.value || '');
+    localStorage.setItem('sr_last_memo_commented', appData.lastMemoCommented || '');
 }
 
 // 辅助延时函数，用于模拟人类一条一条跳消息的呼吸节奏
@@ -618,7 +620,14 @@ async function triggerAiReply() {
         systemPrompt += `[随手备忘]:\n${appData.memories.short.slice(-5).map(s => s.content).join('\n')}\n\n`;
     }
 
-    systemPrompt += `[生活作息与随手记]:\n${JSON.stringify(appData.schedules)}\n随手记: ${localStorage.getItem('sr_memo') || ''}\n\n`;
+    const currentMemo = localStorage.getItem('sr_memo') || '';
+    const memoChanged = currentMemo.trim() !== (appData.lastMemoCommented || '').trim();
+    systemPrompt += `[生活作息与随手记]:\n${JSON.stringify(appData.schedules)}\n随手记: ${currentMemo}\n\n`;
+    if (memoChanged && currentMemo.trim()) {
+        systemPrompt += `[随手记新动态]: user 刚刚在随手记里写了新内容，你可以用 [memo_comment]...[/memo_comment] 标签吐槽一句（只在你真的有话想说时才用，不要强行吐槽）。\n\n`;
+    } else {
+        systemPrompt += `[随手记状态]: user 的随手记没有新变化，本轮不要输出 [memo_comment] 标签。\n\n`;
+    }
 
     // --- 3. 格式与分包规则 ---
     systemPrompt += `[输出法则 (严格执行)]:
@@ -668,8 +677,8 @@ async function triggerAiReply() {
 出乎意料但不 OOC，鲜活但不崩人设。
 
 [附加规则]
-- [heart_voice] 心声标签只在真正心里有话说时才用，不要每轮都附带。
-- [memo_comment] 只在真的想吐槽 user 的随手记时才用。`;
+- [heart_voice]...[/heart_voice] 心声标签：这是你内心独白，是嘴上没说但心里想的。当你有"口是心非""嘴硬心软""欲言又止"的时刻，就应该用它。大约每 3~5 轮对话出现一次，不要每轮都用，但也不要永远不用。心声要简短、真实、带点你自己的小情绪。
+- [memo_comment]...[/memo_comment] 只在真的想吐槽 user 的随手记时才用。`;
 
     // --- 4. 截取最近对话历史（多模态：用户发的真图会变成 image_url） ---
     const turnsLimit = appData.params.history || 20;
@@ -782,10 +791,15 @@ async function triggerAiReply() {
             fullReply = fullReply.replace(/\[heart_voice\][\s\S]*?\[\/heart_voice\]/, '').trim();
         }
 
-        // --- 提取随手记短评 ---
+        // --- 提取随手记短评（仅当随手记有新内容时才更新） ---
         const memoMatch = fullReply.match(/\[memo_comment\]([\s\S]*?)\[\/memo_comment\]/);
+        if (memoMatch && memoChanged && currentMemo.trim()) {
+            const commentText = memoMatch[1].trim();
+            document.getElementById('memo-ai-comment').innerText = commentText;
+            appData.lastMemoCommented = currentMemo;
+            persist();
+        }
         if (memoMatch) {
-            document.getElementById('memo-ai-comment').innerText = memoMatch[1].trim();
             fullReply = fullReply.replace(/\[memo_comment\][\s\S]*?\[\/memo_comment\]/, '').trim();
         }
 
@@ -2037,11 +2051,17 @@ window.onload = function() {
     if (lockEl) lockEl.classList.remove('unlocked');
     switchMainTab('chat-container', appData.contactName || '宋凛', document.querySelector('.nav-item'));
     renderChatHistory();
-// 开机读取最新的心声并显示
+    // 开机读取最新的心声并显示
     const savedHeartVoice = localStorage.getItem('sr_heart_voice');
     if (savedHeartVoice) appData.heartVoice = savedHeartVoice;
     if (document.getElementById('heart-voice-content')) {
-        document.getElementById('heart-voice-content').innerText = appData.heartVoice || "无";
+        const hvContent = document.getElementById('heart-voice-content');
+        if (appData.heartVoice && appData.heartVoice.trim()) {
+            hvContent.innerText = appData.heartVoice;
+        } else {
+            // 没有心声时显示一个温柔的占位，而不是冷冰冰的"无"
+            hvContent.innerText = "（此刻心里很安静，什么也没想。）";
+        }
     }
     const savedLockBg = localStorage.getItem('sr_lock_bg');
     if (savedLockBg) {
@@ -4734,26 +4754,29 @@ async function runWorldWizard() {
 角色气质：${wizSelected.persona.join('、') || '随意'}
 故事走向：${wizSelected.plot.join('、') || '随意'}`;
 
+        // 获取当前激活的 CHAR / USER 档案的名字和头像（不换名不换头像）
+    const activeChar = appData.personas.char.find(c => c.id === activePersonaCharId) || appData.personas.char[0] || { name: '宋凛', avatar: '🐺' };
+    const activeUser = appData.personas.user.find(u => u.id === activePersonaUserId) || appData.personas.user[0] || { name: '江晚星', avatar: '🦊' };
+
     const prompt = `你是一位互动小说策划师。用户选了以下方向，请你生成一份完整的文游开局设定。
 
 ${userPick}
 
-请严格按以下 JSON 格式输出（只输出 JSON，不要任何其他文字、不要 markdown 代码块标记）：
+重要约束：
+- CHAR 的名字固定为「${activeChar.name}」，不要改名。
+- USER 的名字固定为「${activeUser.name}」，不要改名。
+- 你只需要为这两个固定角色设计"在这个世界观下的身份、处境、与对方的关系"。
+- 请严格按以下 JSON 格式输出（只输出 JSON，不要任何其他文字、不要 markdown 代码块标记）：
 
 {
   "worldTitle": "世界观标题（简洁有力）",
   "worldContent": "世界观正文，200-400字。包含：时代背景、核心规则、主要矛盾、氛围基调。",
-  "charName": "CHAR 的名字",
-  "charAvatar": "一个 emoji 头像",
-  "charSign": "一句话签名",
-  "charPersona": "CHAR 的人设，200-300字。包含身份、外貌、性格、与 USER 的关系、隐藏动机。",
-  "userName": "USER 的名字",
-  "userAvatar": "一个 emoji 头像",
-  "userSign": "一句话签名",
-  "userPersona": "USER 的人设，150-250字。包含身份、能力、目标、与 CHAR 的关系。",
+  "charSign": "一句话签名，体现 CHAR 在这个世界的身份感",
+  "charPersona": "CHAR 在这个世界观下的身份设定，200-300字。包含：职业/身份、外貌、性格、与 USER 的关系、隐藏动机。名字固定叫 ${activeChar.name}。",
+  "userSign": "一句话签名，体现 USER 在这个世界的身份感",
+  "userPersona": "USER 在这个世界观下的身份设定，150-250字。包含：身份、能力、目标、与 CHAR 的关系。名字固定叫 ${activeUser.name}。",
   "opening": "开局场景，100-200字，第二人称，从 USER 的视角切入，营造悬念。"
 }`;
-
     openAlert('正在生成...请稍候约 10 秒');
 
     let url = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
@@ -4786,12 +4809,13 @@ ${userPick}
 
         const cId = 'wp_' + Date.now();
         const uId = 'wp_' + (Date.now() + 1);
+        // 名字和头像沿用当前激活的 CHAR / USER 档案，不换
         worldData.personas.char.push({
-            id: cId, avatar: result.charAvatar || '🐺', name: result.charName,
+            id: cId, avatar: activeChar.avatar, name: activeChar.name,
             sign: result.charSign || '', persona: result.charPersona
         });
         worldData.personas.user.push({
-            id: uId, avatar: result.userAvatar || '🦊', name: result.userName,
+            id: uId, avatar: activeUser.avatar, name: activeUser.name,
             sign: result.userSign || '', persona: result.userPersona
         });
 
