@@ -1979,15 +1979,6 @@ async function renderPolaroidStream(images) {
         `;
     }
 }
-                <div class="polaroid-caption">第 ${idx + 1} 张故事印记</div>
-                <div class="polaroid-action-bar" style="display:flex;">
-                    <button class="btn-action secondary small" onclick="openPhotoSourceMenu(${idx})">替换</button>
-                    <button class="btn-action danger small" onclick="removePolaroidPhotoAt(${idx})">删除</button>
-                </div>
-            </div>
-        `;
-    });
-}
 
 // --- 拍立得相框四合一菜单 (上传/输入生图/总结生图/删除) ---
 function openPhotoSourceMenu(idx) {
