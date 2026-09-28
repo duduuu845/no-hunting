@@ -10,7 +10,28 @@
     --panel-bg: rgba(255, 255, 255, 0.96);
     --chat-bg-custom: transparent;
     --bottom-nav-height: 56px;   /* 底栏基础高度 */
-    --bottom-nav-total: calc(56px + env(safe-area-inset-bottom, 0px));
+    /* 🍅 番茄钟专属圆润字体
+       - 中英文都优先选圆体
+       - Baloo 2 / Fredoka 用于数字和英文
+    */
+    --pomo-font-round:
+        "PingFang SC",              /* 苹方（iOS/Mac 中文圆润感最接近） */
+        "HarmonyOS Sans SC",        /* 鸿蒙系统圆体 */
+        "MiSans",                   /* 小米圆体 */
+        "Microsoft YaHei UI",       /* Win 微软雅黑 UI */
+        "YouYuan",                  /* Windows 幼圆（真正圆体） */
+        "Alibaba PuHuiTi 3.0",      /* 阿里普惠体，圆润感强 */
+        "Baloo 2",                  /* 英文/数字回退 */
+        -apple-system,
+        sans-serif;
+
+    --pomo-font-number:
+        "Baloo 2",                  /* 数字圆体 */
+        "Fredoka",
+        "SF Pro Rounded",
+        "HarmonyOS Sans SC",
+        -apple-system,
+        sans-serif;
 }
 
 body.dark-mode {
@@ -1488,4 +1509,724 @@ body.dark-mode .letter-paper-footer {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow-y: auto !important;
+}
+
+/* ==================== 🧁 番茄海盐烘焙工坊 · 完整样式 V3 ==================== */
+/* 配色：海盐白 / 海湾蓝 / 罗勒绿 / 番茄红 / 橄榄黑 */
+/* 质感：圆润卡片 + 手作阴影 + 虚线进度环 */
+
+:root {
+    --pomo-salt-white:  #F6F1E4;
+    --pomo-cream:       #FFFBF0;
+    --pomo-bay-blue:    #2E5F73;
+    --pomo-bay-blue-2:  #3A7288;
+    --pomo-bay-blue-dim:#8AAAB8;
+    --pomo-basil-green: #4A5E42;
+    --pomo-basil-light: #7A9A6B;
+    --pomo-tomato-red:  #D14B2E;
+    --pomo-tomato-deep: #A8371F;
+    --pomo-tomato-soft: #E87656;
+    --pomo-olive-black: #2A2A28;
+    --pomo-olive-soft:  #55534E;
+    --pomo-crust:       #E8DDC4;
+    --pomo-crust-dark:  #D4C4A4;
+
+    /* 烘焙字体 */
+    --pomo-font-round: "PingFang SC", "HarmonyOS Sans SC", "MiSans",
+                       "Microsoft YaHei UI", "YouYuan",
+                       "Alibaba PuHuiTi 3.0", "Baloo 2",
+                       -apple-system, sans-serif;
+    --pomo-font-number: "Baloo 2", "Fredoka", "SF Pro Rounded",
+                        "HarmonyOS Sans SC", -apple-system, sans-serif;
+}
+
+/* 🍅 番茄钟所有文字统一圆体 */
+#page-pomodoro,
+#page-pomodoro *,
+#page-pomo-char-picker,
+#page-pomo-char-picker *,
+#page-pomo-collection,
+#page-pomo-collection * {
+    font-family: var(--pomo-font-round);
+}
+#page-pomodoro .pomo-clock-text,
+#page-pomodoro .pomo-warehouse-num,
+#page-pomodoro .pomo-minutes-tag,
+#page-pomo-collection .pomo-collection-stats b,
+#page-pomo-collection .pomo-dish-name,
+#pomo-char-picker-list .pomo-char-name {
+    font-family: var(--pomo-font-number);
+}
+
+/* -------- 页面底色：与图鉴完全一致（奶油粉 + 面粉颗粒） -------- */
+#page-pomodoro,
+#page-pomo-collection {
+    background-color: #FFF4EC;
+    background-image:
+        radial-gradient(circle at 20% 30%, rgba(240, 200, 170, 0.32) 1px, transparent 1px),
+        radial-gradient(circle at 70% 60%, rgba(240, 200, 170, 0.26) 1px, transparent 1px),
+        radial-gradient(circle at 45% 85%, rgba(240, 200, 170, 0.28) 1px, transparent 1px),
+        radial-gradient(circle at 85% 20%, rgba(240, 200, 170, 0.24) 1px, transparent 1px);
+    background-size: 40px 40px, 60px 60px, 50px 50px, 70px 70px;
+    background-position: 0 0, 20px 30px, 10px 10px, 40px 50px;
+}
+/* 强制让内层 body 也透出奶油色 */
+#page-pomodoro .sub-page-body,
+#page-pomo-collection .sub-page-body {
+    background: transparent !important;
+}
+body.dark-mode #page-pomodoro,
+body.dark-mode #page-pomo-collection {
+    background-color: #1E1B18;
+    background-image: none;
+}
+
+.pomodoro-container {
+    padding: 16px 14px 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    flex: 1;
+}
+
+/* ========== 通用烘焙卡片 ========== */
+.pomo-supervisor-card,
+.pomo-warehouse-bar,
+.pomo-plan-card,
+.pomo-timer-card {
+    background: var(--pomo-cream);
+    border-radius: 26px;
+    box-shadow:
+        0 4px 0 rgba(42, 42, 40, 0.12),
+        0 8px 16px rgba(200, 69, 43, 0.05);
+    box-sizing: border-box;
+    position: relative;
+}
+body.dark-mode .pomo-supervisor-card,
+body.dark-mode .pomo-warehouse-bar,
+body.dark-mode .pomo-plan-card,
+body.dark-mode .pomo-timer-card {
+    background: #262320;
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* ========== 顶部陪读卡片 ========== */
+.pomo-supervisor-card {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 2px solid var(--pomo-crust);
+}
+body.dark-mode .pomo-supervisor-card { border-color: #3A3530; }
+
+.pomo-avatar-box {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--pomo-salt-white);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    flex-shrink: 0;
+    border: 3px solid var(--pomo-tomato-red);
+    box-shadow: 0 3px 0 var(--pomo-tomato-deep);
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.15s;
+}
+.pomo-avatar-box:active { transform: scale(0.94); }
+.pomo-avatar-box img { width: 100%; height: 100%; object-fit: cover; }
+
+.pomo-supervisor-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+.pomo-supervisor-name {
+    font-size: 14.5px;
+    font-weight: 800;
+    color: var(--pomo-olive-black);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+body.dark-mode .pomo-supervisor-name { color: #F6F1E4; }
+.pomo-supervisor-name > span:first-child { cursor: pointer; }
+
+.pomo-badge-online {
+    font-size: 10px;
+    background: var(--pomo-tomato-red);
+    color: #FFFFFF;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+    box-shadow: 0 2px 0 var(--pomo-tomato-deep);
+}
+.pomo-supervisor-status {
+    font-size: 11.5px;
+    color: var(--pomo-olive-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+body.dark-mode .pomo-supervisor-status { color: #B0AEA5; }
+
+/* ========== 番茄仓库顶栏 ========== */
+.pomo-warehouse-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 14px;
+    border: 2px solid var(--pomo-crust);
+}
+body.dark-mode .pomo-warehouse-bar { border-color: #3A3530; }
+
+.pomo-warehouse-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    justify-content: center;
+}
+.pomo-warehouse-emoji {
+    font-size: 28px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 2px rgba(200, 69, 43, 0.25));
+}
+.pomo-warehouse-num {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--pomo-tomato-red);
+    line-height: 1;
+    letter-spacing: 0.5px;
+}
+body.dark-mode .pomo-warehouse-num { color: var(--pomo-tomato-soft); }
+.pomo-warehouse-label {
+    font-size: 10.5px;
+    color: var(--pomo-olive-soft);
+    margin-top: 2px;
+    font-weight: 600;
+}
+body.dark-mode .pomo-warehouse-label { color: #B0AEA5; }
+.pomo-warehouse-divider {
+    width: 2px;
+    height: 36px;
+    background: var(--pomo-crust-dark);
+    border-radius: 999px;
+    opacity: 0.6;
+}
+
+/* ========== 计划卡片 ========== */
+.pomo-plan-card {
+    padding: 14px;
+    border: 2px solid var(--pomo-crust);
+}
+body.dark-mode .pomo-plan-card { border-color: #3A3530; }
+
+.pomo-plan-card .dialog-input {
+    background: var(--pomo-salt-white);
+    border: 2px solid var(--pomo-crust);
+    border-radius: 18px;
+    padding: 10px 14px;
+    color: var(--pomo-olive-black);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 13px;
+    resize: none;
+    transition: border-color 0.15s;
+}
+.pomo-plan-card .dialog-input:focus { border-color: var(--pomo-bay-blue); }
+.pomo-plan-card .dialog-input::placeholder { color: #A8A493; }
+body.dark-mode .pomo-plan-card .dialog-input {
+    background: #1E1B18;
+    color: #F6F1E4;
+    border-color: #3A3530;
+}
+
+#pomo-generate-btn {
+    padding: 6px 12px !important;
+    font-size: 11.5px !important;
+    border-radius: 999px !important;
+    background: var(--pomo-bay-blue) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: 0 3px 0 #1E4351;
+    transition: transform 0.1s;
+}
+#pomo-generate-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #1E4351;
+}
+#pomo-generate-btn:disabled {
+    opacity: 0.6;
+    transform: none;
+    box-shadow: 0 3px 0 #1E4351;
+}
+
+/* ========== 核心计时器大卡片 ========== */
+.pomo-timer-card {
+    padding: 26px 16px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;         /* 三段全部水平居中 */
+    justify-content: center;
+    gap: 18px;                   /* 三段之间的均匀间距 */
+    border: 2px solid var(--pomo-crust);
+    outline: 6px solid var(--pomo-cream);
+    outline-offset: -10px;
+}
+body.dark-mode .pomo-timer-card { border-color: #3A3530; }
+
+/* 顶部小番茄装饰 */
+.pomo-timer-card::before {
+    content: '🍅';
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 24px;
+    line-height: 1;
+    z-index: 2;
+    filter: drop-shadow(0 2px 2px rgba(200, 69, 43, 0.3));
+}
+
+/* ========== 第一段：圆环计时器 ========== */
+.pomo-ring-wrapper {
+    position: relative;
+    width: 250px;
+    height: 250px;
+    margin: 0 auto;
+    flex-shrink: 0;
+}
+.pomo-ring-wrapper svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+    /* 关键：让 SVG 内的元素以圆心为旋转中心 */
+    transform-origin: center center;
+}
+
+/* ---------- 外圈：进度轨迹底（浅色细线） ---------- */
+.pomo-ring-bg {
+    fill: none;
+    stroke: rgba(42, 42, 40, 0.10);
+    stroke-width: 8;
+}
+body.dark-mode .pomo-ring-bg {
+    stroke: rgba(255, 255, 255, 0.10);
+}
+
+/* ---------- 外圈：进度实线（番茄红粗线） ---------- */
+.pomo-ring-progress {
+    fill: none;
+    stroke: var(--pomo-tomato-red);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.3s linear, stroke 0.3s ease;
+    filter: drop-shadow(0 2px 4px rgba(200, 69, 43, 0.25));
+}
+.pomo-ring-progress.break-mode {
+    stroke: var(--pomo-basil-green);
+    filter: drop-shadow(0 2px 4px rgba(74, 94, 66, 0.25));
+}
+
+/* 数字 + 标签：作为整体绝对居中 */
+.pomo-display-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    gap: 8px;
+    line-height: 1;
+}
+.pomo-clock-text {
+    font-size: 52px;
+    font-weight: 800;
+    color: var(--pomo-olive-black);
+    letter-spacing: 0;
+    line-height: 1;
+    margin: 0;
+    padding: 0;
+    text-align: center;
+}
+body.dark-mode .pomo-clock-text { color: #F6F1E4; }
+.pomo-clock-label {
+    font-size: 13px;
+    color: var(--pomo-bay-blue);
+    letter-spacing: 0.5px;
+    font-weight: 800;
+    text-align: center;
+    line-height: 1;
+}
+body.dark-mode .pomo-clock-label { color: var(--pomo-bay-blue-dim); }
+
+/* ========== 第二段：调时组 ========== */
+.pomo-adjust-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;     /* 组内水平居中 */
+    gap: 18px;
+    margin: 0 auto;
+    width: 100%;
+}
+.pomo-adjust-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--pomo-salt-white);
+    border: 2px solid var(--pomo-bay-blue);
+    color: var(--pomo-bay-blue);
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 3px 0 var(--pomo-bay-blue);
+    transition: all 0.1s;
+    padding: 0;
+    line-height: 1;
+}
+.pomo-adjust-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 var(--pomo-bay-blue);
+    background: var(--pomo-tomato-red);
+    border-color: var(--pomo-tomato-red);
+    color: #FFFFFF;
+}
+body.dark-mode .pomo-adjust-btn {
+    background: #1E1B18;
+    border-color: var(--pomo-bay-blue-dim);
+    color: var(--pomo-bay-blue-dim);
+    box-shadow: 0 3px 0 #1E4351;
+}
+.pomo-minutes-tag {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--pomo-olive-black);
+    min-width: 88px;
+    text-align: center;
+    background: var(--pomo-salt-white);
+    border: 2px solid var(--pomo-crust);
+    padding: 6px 12px;
+    border-radius: 999px;
+}
+body.dark-mode .pomo-minutes-tag {
+    color: #F6F1E4;
+    background: #1E1B18;
+    border-color: #3A3530;
+}
+
+/* ========== 第三段：操作按钮组 ========== */
+.pomo-actions-row {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;              /* 按钮组整体居中 */
+    justify-content: center;
+}
+#pomoStartBtn {
+    background: var(--pomo-tomato-red) !important;
+    color: #FFFFFF !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    border: none !important;
+    border-radius: 999px !important;
+    box-shadow: 0 4px 0 var(--pomo-tomato-deep) !important;
+    transition: all 0.1s;
+    padding: 12px 14px !important;
+    flex: 1.6;
+}
+#pomoStartBtn:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 var(--pomo-tomato-deep) !important;
+}
+.pomo-actions-row .btn-action.secondary {
+    background: var(--pomo-salt-white) !important;
+    color: var(--pomo-bay-blue) !important;
+    border: 2px solid var(--pomo-bay-blue) !important;
+    border-radius: 999px !important;
+    font-weight: 800 !important;
+    box-shadow: 0 4px 0 var(--pomo-bay-blue) !important;
+    transition: all 0.1s;
+    flex: 1;
+}
+.pomo-actions-row .btn-action.secondary:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 var(--pomo-bay-blue) !important;
+}
+body.dark-mode .pomo-actions-row .btn-action.secondary {
+    background: #1E1B18 !important;
+    color: var(--pomo-bay-blue-dim) !important;
+    border-color: var(--pomo-bay-blue-dim) !important;
+    box-shadow: 0 4px 0 #1E4351 !important;
+}
+
+/* ========== 气泡流 ========== */
+.pomo-bubble-stream {
+    width: 100%;
+    min-height: 110px;
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 8px 4px;
+}
+.pomo-msg-bubble {
+    background: var(--pomo-cream);
+    border: 2px solid var(--pomo-crust);
+    border-left: 4px solid var(--pomo-tomato-red);
+    border-radius: 20px 20px 20px 6px;
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--pomo-olive-black);
+    align-self: flex-start;
+    max-width: 90%;
+    box-shadow: 0 3px 0 rgba(42, 42, 40, 0.08);
+    animation: pomoSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+body.dark-mode .pomo-msg-bubble {
+    background: #262320;
+    border-color: #3A3530;
+    border-left-color: var(--pomo-tomato-red);
+    color: #F6F1E4;
+}
+@keyframes pomoSlideIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ========== CHAR 选择列表 ========== */
+#pomo-char-picker-list .pomo-char-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    background: var(--pomo-cream);
+    border: 2px solid var(--pomo-crust);
+    border-radius: 22px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 4px 0 rgba(42, 42, 40, 0.1);
+}
+body.dark-mode #pomo-char-picker-list .pomo-char-item {
+    background: #262320;
+    border-color: #3A3530;
+}
+#pomo-char-picker-list .pomo-char-item:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 rgba(42, 42, 40, 0.1);
+}
+#pomo-char-picker-list .pomo-char-item.active {
+    border-color: var(--pomo-tomato-red);
+    background: #FFF5F0;
+    box-shadow: 0 4px 0 var(--pomo-tomato-deep);
+}
+body.dark-mode #pomo-char-picker-list .pomo-char-item.active {
+    background: #2F2420;
+    box-shadow: 0 4px 0 var(--pomo-tomato-deep);
+}
+#pomo-char-picker-list .pomo-char-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--pomo-salt-white);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    flex-shrink: 0;
+    border: 2.5px solid var(--pomo-bay-blue);
+    overflow: hidden;
+}
+#pomo-char-picker-list .pomo-char-item.active .pomo-char-avatar {
+    border-color: var(--pomo-tomato-red);
+}
+#pomo-char-picker-list .pomo-char-avatar img { width: 100%; height: 100%; object-fit: cover; }
+#pomo-char-picker-list .pomo-char-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+#pomo-char-picker-list .pomo-char-name {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--pomo-olive-black);
+}
+body.dark-mode #pomo-char-picker-list .pomo-char-name { color: #F6F1E4; }
+#pomo-char-picker-list .pomo-char-sign {
+    font-size: 11.5px;
+    color: var(--pomo-olive-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#pomo-char-picker-list .pomo-char-current {
+    font-size: 10.5px;
+    color: #FFFFFF;
+    background: var(--pomo-tomato-red);
+    padding: 3px 10px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    font-weight: 800;
+    box-shadow: 0 2px 0 var(--pomo-tomato-deep);
+}
+
+/* ========== 料理图鉴 ========== */
+#page-pomo-collection .sub-page-body {
+    background: transparent !important;
+}
+.pomo-collection-header {
+    background: var(--pomo-cream);
+    border: 2px solid var(--pomo-crust);
+    border-radius: 24px;
+    padding: 18px;
+    text-align: center;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 0 rgba(42, 42, 40, 0.12);
+}
+body.dark-mode .pomo-collection-header {
+    background: #262320;
+    border-color: #3A3530;
+}
+.pomo-collection-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--pomo-bay-blue);
+    margin-bottom: 6px;
+}
+body.dark-mode .pomo-collection-title { color: var(--pomo-bay-blue-dim); }
+.pomo-collection-subtitle {
+    font-size: 12px;
+    color: var(--pomo-olive-soft);
+}
+body.dark-mode .pomo-collection-subtitle { color: #B0AEA5; }
+.pomo-collection-stats {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--pomo-olive-black);
+    flex-wrap: wrap;
+}
+body.dark-mode .pomo-collection-stats { color: #F6F1E4; }
+.pomo-collection-stats b {
+    color: var(--pomo-tomato-red);
+    font-size: 18px;
+    font-weight: 800;
+}
+body.dark-mode .pomo-collection-stats b { color: var(--pomo-tomato-soft); }
+
+.pomo-dish-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding-bottom: 20px;
+}
+.pomo-dish-card {
+    background: var(--pomo-cream);
+    border: 2px solid var(--pomo-crust);
+    border-radius: 22px;
+    padding: 16px 10px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 0 rgba(42, 42, 40, 0.12);
+    position: relative;
+    transition: all 0.2s;
+}
+body.dark-mode .pomo-dish-card {
+    background: #262320;
+    border-color: #3A3530;
+}
+.pomo-dish-card.unlocked {
+    border-color: var(--pomo-tomato-red);
+    box-shadow: 0 4px 0 var(--pomo-tomato-deep);
+}
+.pomo-dish-card.locked {
+    opacity: 0.72;
+    filter: grayscale(0.55);
+}
+.pomo-dish-emoji {
+    font-size: 46px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+}
+.pomo-dish-card.locked .pomo-dish-emoji {
+    filter: grayscale(1) brightness(0.75) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
+}
+.pomo-dish-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--pomo-olive-black);
+    text-align: center;
+}
+body.dark-mode .pomo-dish-name { color: #F6F1E4; }
+.pomo-dish-req {
+    font-size: 10.5px;
+    color: var(--pomo-olive-soft);
+    text-align: center;
+    line-height: 1.35;
+}
+body.dark-mode .pomo-dish-req { color: #B0AEA5; }
+.pomo-dish-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-weight: 800;
+}
+.pomo-dish-badge.unlocked-badge {
+    background: var(--pomo-basil-green);
+    color: #FFFFFF;
+    box-shadow: 0 2px 0 #2F3D2A;
+}
+.pomo-dish-badge.locked-badge {
+    background: rgba(42, 42, 40, 0.12);
+    color: var(--pomo-olive-soft);
+}
+body.dark-mode .pomo-dish-badge.locked-badge {
+    background: rgba(255, 255, 255, 0.1);
+    color: #B0AEA5;
+}
+.pomo-dish-progress {
+    width: 100%;
+    height: 6px;
+    background: var(--pomo-crust);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 6px;
+}
+body.dark-mode .pomo-dish-progress { background: #3A3530; }
+.pomo-dish-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--pomo-tomato-red), var(--pomo-basil-green));
+    border-radius: 999px;
+    transition: width 0.4s ease;
 }

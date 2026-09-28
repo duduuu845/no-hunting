@@ -5319,82 +5319,571 @@ function worldBatchDelete() {
 
 // ==================== 发现页 ====================
 
-// 番茄钟
+// ==================== 🍅 番茄烘焙工坊 · 核心引擎 ====================
 let pomoState = {
-    running: false,
-    phase: 'focus',
-    remain: 25 * 60,
-    round: 0,
-    timer: null
+    defaultMinutes: 25,
+    breakMinutes: 5,
+    focusMinutes: 25,
+    currentMode: 'focus',
+    totalSeconds: 25 * 60,
+    remainingSeconds: 25 * 60,
+    timer: null,
+    isRunning: false,
+    CIRCUMFERENCE: 603.19,
+    activeCharId: null,
+    customPlan: '',
+    customBubbles: null
 };
 
-function pomoToggle() {
-    const btn = document.getElementById('pomo-btn-start');
-    if (pomoState.running) {
-        clearInterval(pomoState.timer);
-        pomoState.timer = null;
-        pomoState.running = false;
-        btn.innerText = '继续';
-    } else {
-        pomoState.running = true;
-        btn.innerText = '暂停';
-        pomoState.timer = setInterval(pomoTick, 1000);
+// ==================== 番茄料理图鉴数据 ====================
+// 每个料理有一个 id、名字、emoji、解锁条件（累计专注分钟 或 累计小番茄数）
+const POMO_DISHES = [
+    { id: 'd1',  name: '番茄酱',       emoji: '🥫',  desc: '最基础的第一步',     reqType: 'tomato', need: 1 },
+    { id: 'd2',  name: '番茄炒蛋',     emoji: '🍳',  desc: '国民下饭菜',         reqType: 'tomato', need: 3 },
+    { id: 'd3',  name: '番茄汤',       emoji: '🍲',  desc: '暖胃的一天',         reqType: 'tomato', need: 6 },
+    { id: 'd4',  name: '番茄意面',     emoji: '🍝',  desc: '经典意式风味',       reqType: 'tomato', need: 10 },
+    { id: 'd5',  name: '番茄牛腩',     emoji: '🥘',  desc: '慢炖的温柔',         reqType: 'min',    need: 60 },
+    { id: 'd6',  name: '番茄披萨',     emoji: '🍕',  desc: '烘焙的极致浪漫',     reqType: 'min',    need: 120 },
+    { id: 'd7',  name: '番茄浓汤',     emoji: '🥣',  desc: '法式高级感',         reqType: 'min',    need: 180 },
+    { id: 'd8',  name: '番茄咕咾肉',   emoji: '🍖',  desc: '甜中带酸',           reqType: 'tomato', need: 20 },
+    { id: 'd9',  name: '番茄千层面',   emoji: '🧀',  desc: '层层叠叠的幸福',     reqType: 'min',    need: 240 },
+    { id: 'd10', name: '番茄寿司',     emoji: '🍣',  desc: '和风的清新',         reqType: 'tomato', need: 30 },
+    { id: 'd11', name: '番茄舒芙蕾',   emoji: '🍰',  desc: '甜点界的软乎乎',     reqType: 'min',    need: 360 },
+    { id: 'd12', name: '番茄米其林',   emoji: '⭐',  desc: '番茄界的巅峰',       reqType: 'tomato', need: 50 }
+];
+
+// -------- 番茄仓库持久化 --------
+function getPomoWarehouse() {
+    try {
+        const raw = localStorage.getItem('sr_pomo_warehouse');
+        if (!raw) return { tomatoes: 0, totalMinutes: 0, unlocked: [] };
+        const parsed = JSON.parse(raw);
+        return {
+            tomatoes: parsed.tomatoes || 0,
+            totalMinutes: parsed.totalMinutes || 0,
+            unlocked: Array.isArray(parsed.unlocked) ? parsed.unlocked : []
+        };
+    } catch (e) {
+        return { tomatoes: 0, totalMinutes: 0, unlocked: [] };
     }
 }
 
-function pomoTick() {
-    pomoState.remain--;
-    if (pomoState.remain <= 0) {
-        clearInterval(pomoState.timer);
-        pomoState.timer = null;
-        pomoState.running = false;
-        pomoNextPhase();
-    }
-    pomoRender();
+function savePomoWarehouse(data) {
+    localStorage.setItem('sr_pomo_warehouse', JSON.stringify(data));
 }
 
-function pomoRender() {
-    const m = Math.floor(pomoState.remain / 60);
-    const s = pomoState.remain % 60;
-    document.getElementById('pomo-time-display').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-    const labels = { focus: '专注中', short: '短休息', long: '长休息' };
-    document.getElementById('pomo-phase-label').innerText = labels[pomoState.phase] || '';
-}
-
-function pomoReset() {
-    if (pomoState.timer) clearInterval(pomoState.timer);
-    pomoState.running = false;
-    pomoState.phase = 'focus';
-    pomoState.remain = 25 * 60;
-    pomoState.round = 0;
-    document.getElementById('pomo-btn-start').innerText = '开始';
-    pomoRender();
-    document.getElementById('pomo-char-says').innerText = '重新开始吧，我在。';
-}
-
-async function pomoNextPhase() {
-    if (pomoState.phase === 'focus') {
-        pomoState.round++;
-        if (pomoState.round % 4 === 0) {
-            pomoState.phase = 'long';
-            pomoState.remain = 15 * 60;
-            await pomoCharSay('四轮啦，站起来走走，喝口水。');
-        } else {
-            pomoState.phase = 'short';
-            pomoState.remain = 5 * 60;
-            await pomoCharSay('这轮专注结束了，休息5分钟吧。');
+// 根据仓库数据，重新计算解锁的料理
+function refreshPomoUnlocked(wh) {
+    const unlockedSet = new Set(wh.unlocked || []);
+    let newlyUnlocked = [];
+    POMO_DISHES.forEach(dish => {
+        const cur = dish.reqType === 'tomato' ? wh.tomatoes : wh.totalMinutes;
+        if (cur >= dish.need && !unlockedSet.has(dish.id)) {
+            unlockedSet.add(dish.id);
+            newlyUnlocked.push(dish);
         }
-    } else {
-        pomoState.phase = 'focus';
-        pomoState.remain = 25 * 60;
-        await pomoCharSay('休息够了，继续加油。');
-    }
-    pomoRender();
-    document.getElementById('pomo-btn-start').innerText = '开始';
+    });
+    wh.unlocked = Array.from(unlockedSet);
+    return newlyUnlocked;
 }
 
-async function pomoCharSay(text) {
-    document.getElementById('pomo-char-says').innerText = text;
+// -------- 打开番茄钟页面 --------
+function openPomodoroPage() {
+    if (!pomoState.activeCharId) {
+        pomoState.activeCharId = (typeof activePersonaCharId !== 'undefined' && activePersonaCharId)
+            ? activePersonaCharId
+            : (appData.personas.char[0] && appData.personas.char[0].id);
+    }
+    pomoRefreshCharCard();
+    pomoRefreshWarehouseBar();
+    initPomodoroDisplay();
+    openSubModal('page-pomodoro');
+}
+
+// 刷新顶部仓库条
+function pomoRefreshWarehouseBar() {
+    const wh = getPomoWarehouse();
+    const tEl = document.getElementById('pomo-tomato-count');
+    const mEl = document.getElementById('pomo-total-min');
+    if (tEl) tEl.innerText = wh.tomatoes;
+    if (mEl) mEl.innerText = wh.totalMinutes;
+}
+
+function pomoRefreshCharCard() {
+    const char = pomoGetActiveChar();
+    const avatarEl = document.getElementById('pomo-avatar-slot');
+    const titleEl = document.getElementById('pomo-supervisor-title');
+    if (avatarEl) {
+        avatarEl.innerHTML = (char.avatar && char.avatar.startsWith('data:'))
+            ? `<img src="${char.avatar}" style="width:100%; height:100%; object-fit:cover;">`
+            : (char.avatar || '🐺');
+    }
+    if (titleEl) titleEl.innerText = char.name || '烘焙助手';
+}
+
+function pomoGetActiveChar() {
+    const list = (appData.personas && appData.personas.char) || [];
+    const found = list.find(c => c.id === pomoState.activeCharId);
+    return found || list[0] || { id: '_fallback', name: '宋凛', avatar: '🐺', prompt: '' };
+}
+
+function openPomoCharPicker() {
+    const list = (appData.personas && appData.personas.char) || [];
+    const cont = document.getElementById('pomo-char-picker-list');
+    if (!cont) return;
+    cont.innerHTML = '';
+
+    if (!list.length) {
+        cont.innerHTML = `<div style="text-align:center; padding:30px 0; font-size:12px; color:var(--text-sub);">还没有 CHAR 档案，先去【设置】→【人物档案库】创建一个。</div>`;
+        openSubModal('page-pomo-char-picker');
+        return;
+    }
+
+    list.forEach(c => {
+        const isActive = c.id === pomoState.activeCharId;
+        const avatarHtml = (c.avatar && c.avatar.startsWith('data:'))
+            ? `<img src="${c.avatar}">`
+            : (c.avatar || '🐺');
+        cont.innerHTML += `
+            <div class="pomo-char-item ${isActive ? 'active' : ''}" onclick="pomoSelectChar('${c.id}')">
+                <div class="pomo-char-avatar">${avatarHtml}</div>
+                <div class="pomo-char-info">
+                    <div class="pomo-char-name">${c.name || '未命名'}</div>
+                    <div class="pomo-char-sign">${c.sign || '未设置签名'}</div>
+                </div>
+                ${isActive ? '<span class="pomo-char-current">当前</span>' : ''}
+            </div>
+        `;
+    });
+
+    openSubModal('page-pomo-char-picker');
+}
+
+function pomoSelectChar(id) {
+    pomoState.activeCharId = id;
+    pomoState.customBubbles = null;
+    pomoRefreshCharCard();
+    closeSubModal('page-pomo-char-picker');
+    const stream = document.getElementById('pomoBubbleStream');
+    if (stream) {
+        stream.innerHTML = '';
+        const char = pomoGetActiveChar();
+        addPomoBubble(`我是${char.name}，这次陪你一起烘焙。调好时长就点开始。`);
+    }
+}
+
+function initPomodoroDisplay() {
+    pomoState.totalSeconds = pomoState.focusMinutes * 60;
+    pomoState.remainingSeconds = pomoState.totalSeconds;
+    pomoState.currentMode = 'focus';
+    pomoState.customBubbles = null;
+    pomoRefreshClock();
+    pomoUpdateStartBtn();
+
+    const stream = document.getElementById('pomoBubbleStream');
+    if (stream) {
+        stream.innerHTML = '';
+        const char = pomoGetActiveChar();
+        addPomoBubble(`我是你的烘焙师助手${char.name}。想好这次要做什么了吗？`);
+    }
+
+    const planInput = document.getElementById('pomo-plan-input');
+    if (planInput) planInput.value = '';
+}
+
+function formatPomoSec(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function pomoRefreshClock() {
+    const textEl = document.getElementById('pomoTimeText');
+    const ring = document.getElementById('pomoRingProgress');
+    const minDisplay = document.getElementById('pomoMinutesDisplay');
+    const labelEl = document.getElementById('pomoTimeLabel');
+
+    if (textEl) textEl.innerText = formatPomoSec(pomoState.remainingSeconds);
+    if (minDisplay) minDisplay.innerText = `${pomoState.focusMinutes} 分钟`;
+
+    if (ring) {
+        const C = pomoState.CIRCUMFERENCE;   // 552.92
+        const progress = pomoState.totalSeconds > 0
+            ? pomoState.remainingSeconds / pomoState.totalSeconds
+            : 0;
+        const walked = 1 - progress;
+
+        // 红色实线：从顶部开始顺时针增长（自带的圆头就是你要的"红头"）
+        ring.style.strokeDasharray = `${C}`;
+        ring.style.strokeDashoffset = `${C * (1 - walked)}`;
+
+        if (pomoState.currentMode === 'focus') {
+            ring.classList.remove('break-mode');
+            if (labelEl) labelEl.innerText = "🍅 烘焙中";
+        } else {
+            ring.classList.add('break-mode');
+            if (labelEl) labelEl.innerText = "🌿 醒面中";
+        }
+    }
+}
+
+function addPomoBubble(msg) {
+    const stream = document.getElementById('pomoBubbleStream');
+    if (!stream) return;
+    const b = document.createElement('div');
+    b.className = 'pomo-msg-bubble';
+    b.innerText = msg;
+    stream.appendChild(b);
+    stream.scrollTop = stream.scrollHeight;
+    while (stream.children.length > 6) stream.removeChild(stream.firstChild);
+}
+
+// ==================== 默认台词库 ====================
+const POMO_DEFAULT_QUOTES = {
+    welcome: [
+        "欢迎来到番茄烘焙工坊。静下心做料理就会好吃。",
+        "又见面了，这次准备烤什么？"
+    ],
+    start: [
+        "计时开始。这25分钟炉火全开，别溜号。",
+        "深呼吸，把杂念清空。我守着炉子，你专心做事。",
+        "开始吧。敢中途打开短视频，回头给你扣小红花。"
+    ],
+    running: [
+        "烤到一半了。腰挺直，别让火候断了。",
+        "专注的样子挺好看，继续保持。",
+        "火候刚好，一鼓作气烤到出炉。"
+    ],
+    nearEnd: [
+        "最后几分钟收尾冲刺，别烤焦了。",
+        "马上到点了，咬咬牙。",
+        "还剩一点，闻到香味了吗？"
+    ],
+    pause: [
+        "停火了？调整好火候随时叫我。",
+        "累了就喘口气，但别就着借口躺平。"
+    ],
+    reset: [
+        "清零重开？行，这锅不算。",
+        "重新起锅，这次打算烤多久？"
+    ],
+    completeFocus: [
+        "出炉！这颗番茄烤得漂亮，收进仓库了。",
+        "叮——25分钟达成。去接杯水，休息一下。",
+        "烤完这一炉。休息时间不准看屏幕。"
+    ],
+    breakStart: [
+        "醒面时间。站起来走走，把眼睛从屏幕上挪开。",
+        "五分钟带薪发呆。我陪你耗着。"
+    ],
+    completeBreak: [
+        "醒好了？准备收集下一颗番茄。"
+    ]
+};
+
+function pickPomoQuote(key) {
+    if (pomoState.customBubbles && Array.isArray(pomoState.customBubbles[key]) && pomoState.customBubbles[key].length) {
+        const arr = pomoState.customBubbles[key];
+        return arr[Math.floor(Math.random() * arr.length)];
+    }
+    const arr = POMO_DEFAULT_QUOTES[key] || [];
+    if (!arr.length) return '';
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// ==================== AI 自定义台词 ====================
+async function pomoGenerateCustomBubbles() {
+    const planInput = document.getElementById('pomo-plan-input');
+    const plan = (planInput?.value || '').trim();
+
+    if (!plan) {
+        openAlert('先在输入框里写一下你这次要做什么吧～');
+        return;
+    }
+
+    const endpoint = appData.api.endpoint;
+    const key = appData.api.key;
+    const model = appData.api.model;
+    if (!key || !model) {
+        openAlert('请先在【设置】→【API设置】里配置 API，才能生成专属台词。');
+        return;
+    }
+
+    const btn = document.getElementById('pomo-generate-btn');
+    btn.disabled = true;
+    btn.innerText = '烘焙中...';
+
+    pomoState.customPlan = plan;
+    const char = pomoGetActiveChar();
+
+    const sysPrompt = `你是${char.name}，正在陪着 user 做一次番茄钟专注（我们把这个过程叫做"烘焙番茄料理"）。
+${char.prompt ? `你的人设：${char.prompt}` : ''}
+
+【本次情境】
+user 打算做的事情：${plan}
+
+【任务】
+请以「${char.name}」的口吻，为本次番茄钟生成 6 组短句，每组 2-3 条，用于在番茄钟运行时随机出现。
+- 保留你的人设特点和说话习惯，禁模板化。
+- 短句要口语化、有画面感、贴合 user 这次要做的事。
+- 每个短句不超过 30 字。
+
+【严格输出 JSON 格式，不要任何其他文字、不要 markdown 代码块标记】
+{
+  "welcome":    ["开场白1", "开场白2"],
+  "start":      ["开始1", "开始2", "开始3"],
+  "running":    ["过半1", "过半2", "过半3"],
+  "nearEnd":    ["临近结束1", "临近结束2"],
+  "pause":      ["暂停1", "暂停2"],
+  "reset":      ["重置1", "重置2"],
+  "completeFocus": ["完成1", "完成2", "完成3"],
+  "breakStart":  ["休息开始1", "休息开始2"],
+  "completeBreak": ["休息结束1"]
+}`;
+
+    let url = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
+    url = url.endsWith('/v1') ? `${url}/chat/completions` : `${url}/v1/chat/completions`;
+
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, messages: [{ role: 'user', content: sysPrompt }], temperature: 0.9 })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        let text = data.choices[0].message.content.trim();
+        text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('AI 返回格式不对');
+        pomoState.customBubbles = JSON.parse(jsonMatch[0]);
+
+        const stream = document.getElementById('pomoBubbleStream');
+        if (stream) stream.innerHTML = '';
+        const welcome = pickPomoQuote('welcome');
+        if (welcome) addPomoBubble(welcome);
+        openAlert(`已为「${char.name}」生成本次专属台词！`);
+    } catch (e) {
+        console.error('生成专属台词失败:', e);
+        openAlert(`生成失败：${e.message}。将使用默认台词继续。`);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = '✨ 让TA为这次生成台词';
+    }
+}
+
+// ==================== 开始/暂停 ====================
+function togglePomoTimer() {
+    if (pomoState.isRunning) {
+        clearInterval(pomoState.timer);
+        pomoState.isRunning = false;
+        pomoUpdateStartBtn();
+        const q = pickPomoQuote('pause');
+        if (q) addPomoBubble(q);
+        const statusEl = document.getElementById('pomo-status-desc');
+        if (statusEl) statusEl.innerText = "已暂停，别趁机跑路。";
+    } else {
+        pomoState.isRunning = true;
+        pomoState.timer = setInterval(pomoTick, 1000);
+        pomoUpdateStartBtn();
+        if (pomoState.remainingSeconds === pomoState.totalSeconds) {
+            const q = pickPomoQuote('start');
+            if (q) addPomoBubble(q);
+        }
+        const statusEl = document.getElementById('pomo-status-desc');
+        if (statusEl) {
+            const plan = pomoState.customPlan || (document.getElementById('pomo-plan-input')?.value || '').trim();
+            statusEl.innerText = plan ? `烘焙中 · ${plan}` : '烘焙中 · 保持专注';
+        }
+    }
+}
+
+// ==================== 核心 tick + 番茄收集 ====================
+function pomoTick() {
+    if (pomoState.remainingSeconds <= 0) {
+        clearInterval(pomoState.timer);
+        pomoState.isRunning = false;
+
+        if (pomoState.currentMode === 'focus') {
+            // ===== 完成一次专注：结算 =====
+            const completedMinutes = pomoState.focusMinutes;
+            const q = pickPomoQuote('completeFocus');
+            if (q) addPomoBubble(q);
+
+            // 1. 从仓库里扣掉"本炉消耗的小番茄"？不，我们反过来——完成一次，往仓库里加
+            const wh = getPomoWarehouse();
+            wh.tomatoes += 1;
+            wh.totalMinutes += completedMinutes;
+
+            // 2. 检查是否有新料理解锁
+            const newly = refreshPomoUnlocked(wh);
+            savePomoWarehouse(wh);
+
+            // 3. 刷新界面计数
+            pomoRefreshWarehouseBar();
+
+            // 4. 弹出解锁通知
+            if (newly.length) {
+                setTimeout(() => {
+                    const names = newly.map(d => `${d.emoji} ${d.name}`).join('、');
+                    openAlert(`🎉 解锁新料理：${names}！去【料理图鉴】查看吧～`);
+                }, 800);
+            }
+
+            // 5. 往真实聊天流里推一条战报
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+            const planText = pomoState.customPlan || (document.getElementById('pomo-plan-input')?.value || '').trim();
+            const battleText = planText
+                ? `🍅 番茄烘焙汇报：user 完成了一次 ${completedMinutes} 分钟专注（${planText}）。出炉 +1 颗小番茄，当前库存 ${wh.tomatoes} 颗。`
+                : `🍅 番茄烘焙汇报：user 完成了一次 ${completedMinutes} 分钟专注。出炉 +1 颗小番茄，当前库存 ${wh.tomatoes} 颗。`;
+
+            const msgId = 'pomo_done_' + Date.now();
+            if (typeof appendBubbleToUI === 'function') {
+                appendBubbleToUI('char', battleText, timeStr, null, msgId);
+                appData.chatHistory.push({
+                    id: msgId, role: 'char', text: battleText, time: timeStr, quote: null
+                });
+                if (typeof persist === 'function') persist();
+            }
+
+            // 6. 切到休息
+            pomoState.currentMode = 'break';
+            pomoState.totalSeconds = pomoState.breakMinutes * 60;
+            pomoState.remainingSeconds = pomoState.totalSeconds;
+            const bq = pickPomoQuote('breakStart');
+            if (bq) addPomoBubble(bq);
+        } else {
+            const q = pickPomoQuote('completeBreak');
+            if (q) addPomoBubble(q);
+            pomoState.currentMode = 'focus';
+            pomoState.totalSeconds = pomoState.focusMinutes * 60;
+            pomoState.remainingSeconds = pomoState.totalSeconds;
+        }
+
+        pomoUpdateStartBtn();
+        pomoRefreshClock();
+        return;
+    }
+
+    pomoState.remainingSeconds--;
+    pomoRefreshClock();
+
+    if (pomoState.currentMode === 'focus') {
+        if (pomoState.remainingSeconds === Math.floor(pomoState.totalSeconds / 2)) {
+            const q = pickPomoQuote('running');
+            if (q) addPomoBubble(q);
+        } else if (pomoState.remainingSeconds === 60) {
+            const q = pickPomoQuote('nearEnd');
+            if (q) addPomoBubble(q);
+        }
+    }
+}
+
+function resetPomoTimer() {
+    if (pomoState.timer) clearInterval(pomoState.timer);
+    pomoState.isRunning = false;
+    pomoState.currentMode = 'focus';
+    pomoState.totalSeconds = pomoState.focusMinutes * 60;
+    pomoState.remainingSeconds = pomoState.totalSeconds;
+    pomoUpdateStartBtn();
+    pomoRefreshClock();
+    const q = pickPomoQuote('reset');
+    if (q) addPomoBubble(q);
+    const statusEl = document.getElementById('pomo-status-desc');
+    if (statusEl) statusEl.innerText = '已清零重置，准备好随时重新开始。';
+}
+
+function pomoUpdateStartBtn() {
+    const btn = document.getElementById('pomoStartBtn');
+    if (!btn) return;
+    if (pomoState.isRunning) {
+        btn.innerText = "⏸ 暂停";
+        btn.style.background = "#e2e8f0";
+        btn.style.color = "var(--text-main)";
+    } else {
+        btn.innerText = (pomoState.currentMode === 'focus') ? "▶ 开始烘焙" : "☕ 开始醒面";
+        btn.style.background = (pomoState.currentMode === 'focus')
+            ? "linear-gradient(135deg, #ff8b5c, #ff5a2b)"
+            : "linear-gradient(135deg, #7dd87d, #34c759)";
+        btn.style.color = "#ffffff";
+    }
+}
+
+function adjustPomoMinutes(delta) {
+    if (pomoState.isRunning) {
+        addPomoBubble("正烤着呢，想改时长先点暂停。");
+        return;
+    }
+    if (pomoState.currentMode !== 'focus') {
+        addPomoBubble("醒面时间固定五分钟，别讨价还价。");
+        return;
+    }
+    let next = pomoState.focusMinutes + delta;
+    if (next < 5) next = 5;
+    if (next > 120) next = 120;
+    pomoState.focusMinutes = next;
+    pomoState.totalSeconds = next * 60;
+    pomoState.remainingSeconds = pomoState.totalSeconds;
+    pomoRefreshClock();
+    addPomoBubble(`时长调整为 ${pomoState.focusMinutes} 分钟，准备好了就开烤。`);
+}
+
+// ==================== 📖 料理图鉴 ====================
+function openPomoCollectionPage() {
+    renderPomoCollection();
+    openSubModal('page-pomo-collection');
+}
+
+function renderPomoCollection() {
+    const body = document.getElementById('pomo-collection-body');
+    if (!body) return;
+
+    const wh = getPomoWarehouse();
+    refreshPomoUnlocked(wh);
+    savePomoWarehouse(wh);
+
+    const unlockedSet = new Set(wh.unlocked || []);
+    const totalUnlocked = unlockedSet.size;
+
+    let html = `
+        <div class="pomo-collection-header">
+            <div class="pomo-collection-title">🍅 番茄料理图鉴</div>
+            <div class="pomo-collection-subtitle">收集小番茄，解锁每一道料理</div>
+            <div class="pomo-collection-stats">
+                <span>已解锁 <b>${totalUnlocked}</b> / ${POMO_DISHES.length}</span>
+                <span>库存 🍅 <b>${wh.tomatoes}</b></span>
+                <span>累计 ⏱️ <b>${wh.totalMinutes}</b> 分钟</span>
+            </div>
+        </div>
+        <div class="pomo-dish-grid">
+    `;
+
+    POMO_DISHES.forEach(dish => {
+        const unlocked = unlockedSet.has(dish.id);
+        const cur = dish.reqType === 'tomato' ? wh.tomatoes : wh.totalMinutes;
+        const pct = Math.min(100, Math.round((cur / dish.need) * 100));
+        const reqText = dish.reqType === 'tomato'
+            ? `需要 ${dish.need} 颗小番茄`
+            : `需要累计专注 ${dish.need} 分钟`;
+
+        html += `
+            <div class="pomo-dish-card ${unlocked ? 'unlocked' : 'locked'}">
+                <div class="pomo-dish-badge ${unlocked ? 'unlocked-badge' : 'locked-badge'}">
+                    ${unlocked ? '已解锁' : '未解锁'}
+                </div>
+                <div class="pomo-dish-emoji">${dish.emoji}</div>
+                <div class="pomo-dish-name">${dish.name}</div>
+                <div class="pomo-dish-req">${unlocked ? dish.desc : reqText}</div>
+                <div class="pomo-dish-progress">
+                    <div class="pomo-dish-progress-fill" style="width:${pct}%;"></div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `</div>`;
+    body.innerHTML = html;
 }
 
 // 大转盘

@@ -12,6 +12,12 @@
     <link rel="manifest" href="manifest.json">
     
     <title>禁猎区</title>
+
+    <!-- 圆润烘焙字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+
     <!-- 引入独立皮肤文件 -->
     <link rel="stylesheet" href="style.css">
 </head>
@@ -365,16 +371,17 @@
 
         <div class="view-panel" id="view-discover" style="padding:14px; gap:12px; background:var(--bg-page);">
             <div class="menu-list">
-                <div class="menu-item" onclick="openSubModal('page-pomodoro')">
+                <div class="menu-item" onclick="openPomodoroPage()">
                     <div class="menu-item-left">
                         <span class="menu-icon">🍅</span>
                         <div>
-                            <div class="menu-title">番茄钟 · 陪读</div>
+                            <div class="menu-title">番茄烘焙工坊</div>
                             <div class="menu-sub">专注 25 分钟，TA 在旁边陪你</div>
                         </div>
                     </div>
                     <span class="menu-arrow">›</span>
-                </div>
+                </div>           
+ 
 
                 <div class="menu-item" onclick="openSubModal('page-couple-wheel')">
                     <div class="menu-item-left">
@@ -512,6 +519,7 @@
             </div>
         </div>
     </div>
+
 
     <!-- 表情包快捷浮窗 (联动真实分类) -->
     <div class="sticker-popup" id="sticker-popup">
@@ -940,30 +948,117 @@
 
 <!-- ==================== 发现页 5 个子页面 ==================== -->
 
-<!-- 1. 番茄钟 -->
-<div class="sub-page" id="page-pomodoro">
-    <div class="sub-page-header">
-        <button class="header-btn" onclick="closeSubModal('page-pomodoro')">‹ 返回</button>
-        <span style="font-size:15px; font-weight:600;">🍅 番茄钟</span>
-        <span style="width:40px;"></span>
-    </div>
-    <div class="sub-page-body" id="pomodoro-body">
-        <div class="action-card" style="padding:24px 14px; display:flex; flex-direction:column; align-items:center; gap:14px;">
-            <div style="font-size:60px; font-family:'Courier New',monospace; font-weight:700; color:var(--ios-blue);" id="pomo-time-display">25:00</div>
-            <div style="font-size:12px; color:var(--text-sub);" id="pomo-phase-label">准备开始</div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn-action" id="pomo-btn-start" onclick="pomoToggle()">开始</button>
-                <button class="btn-action secondary" onclick="pomoReset()">重置</button>
-            </div>
-            <div style="font-size:11px; color:var(--text-sub); margin-top:6px;">25分钟专注 + 5分钟休息，四轮后长休15分钟</div>
+    <!-- 独立子页面：番茄烘焙工坊 -->
+    <div class="sub-page" id="page-pomodoro">
+        <div class="sub-page-header">
+            <button class="header-btn" onclick="closeSubModal('page-pomodoro')">‹ 返回</button>
+            <span style="font-size:15px; font-weight:600;">🍅 番茄烘焙工坊</span>
+            <button class="btn-action small" onclick="openPomoCollectionPage()">📖 料理图鉴</button>
         </div>
+        <div class="sub-page-body" style="padding:0; background:transparent; overflow-y:auto;">
+            <div class="pomodoro-container">
 
-        <div class="action-card" style="padding:14px;" id="pomo-chat-area">
-            <div style="font-size:12px; font-weight:600; color:var(--text-sub); margin-bottom:6px;">TA 在陪你</div>
-            <div id="pomo-char-says" style="font-size:13px; color:var(--text-main); line-height:1.5;">开始专注吧，我在这陪着你。</div>
+                <!-- 顶部：陪读 CHAR 选择器 -->
+                <div class="pomo-supervisor-card">
+                    <div class="pomo-avatar-box" id="pomo-avatar-slot" onclick="openPomoCharPicker()">🐺</div>
+                    <div class="pomo-supervisor-info">
+                        <div class="pomo-supervisor-name">
+                            <span id="pomo-supervisor-title" onclick="openPomoCharPicker()">宋凛</span>
+                            <span class="pomo-badge-online">烘焙中</span>
+                            <span style="font-size:10px; color:var(--pomo-bay-blue); cursor:pointer; margin-left:auto;" onclick="openPomoCharPicker()">切换 ›</span>
+                        </div>
+                        <div class="pomo-supervisor-status" id="pomo-status-desc">一起烘焙美味番茄料理！</div>
+                    </div>
+                </div>
+
+                <!-- 番茄仓库顶栏：小番茄计数 + 累计专注 -->
+                <div class="pomo-warehouse-bar">
+                    <div class="pomo-warehouse-item">
+                        <div class="pomo-warehouse-emoji">🍅</div>
+                        <div>
+                            <div class="pomo-warehouse-num" id="pomo-tomato-count">0</div>
+                            <div class="pomo-warehouse-label">小番茄库存</div>
+                        </div>
+                    </div>
+                    <div class="pomo-warehouse-divider"></div>
+                    <div class="pomo-warehouse-item">
+                        <div class="pomo-warehouse-emoji">⏱️</div>
+                        <div>
+                            <div class="pomo-warehouse-num" id="pomo-total-min">0</div>
+                            <div class="pomo-warehouse-label">累计专注分钟</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 本次计划输入框 -->
+                <div class="pomo-plan-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <span style="font-size:12px; font-weight:600; color:var(--pomo-olive-black);">📝 这次要做什么？</span>
+                        <button class="btn-action secondary small" id="pomo-generate-btn" onclick="pomoGenerateCustomBubbles()">✨ 让TA为这次生成台词</button>
+                    </div>
+                    <textarea class="dialog-input" id="pomo-plan-input" style="height:52px; line-height:1.4; font-size:12.5px; resize:none;" placeholder="例如：背书 / 写周报 / 改bug / 专注做..."></textarea>
+                </div>
+
+                <!-- 核心计时器大卡片（番茄烘焙主题） -->
+                <div class="pomo-timer-card">
+
+                    <!-- 第一段：圆环计时器（居中） -->
+                    <div class="pomo-ring-wrapper">
+                        <svg viewBox="0 0 200 200">
+                            <!-- 外圈：进度轨迹底（浅色细线） -->
+                            <circle class="pomo-ring-bg" cx="100" cy="100" r="96"></circle>
+                            <!-- 外圈：进度实线（番茄红粗线，自带圆头） -->
+                            <circle class="pomo-ring-progress" id="pomoRingProgress" cx="100" cy="100" r="96"></circle>
+                        </svg>
+                        <!-- 中间的时间数字 + 标签（作为整体居中） -->
+                        <div class="pomo-display-center">
+                            <div class="pomo-clock-text" id="pomoTimeText">25:00</div>
+                            <div class="pomo-clock-label" id="pomoTimeLabel">🍅 烘焙中</div>
+                        </div>
+                    </div>
+
+                    <!-- 第二段：调时组（居中） -->
+                    <div class="pomo-adjust-row">
+                        <button class="pomo-adjust-btn" onclick="adjustPomoMinutes(-5)">−</button>
+                        <span class="pomo-minutes-tag" id="pomoMinutesDisplay">25 分钟</span>
+                        <button class="pomo-adjust-btn" onclick="adjustPomoMinutes(5)">+</button>
+                    </div>
+
+                    <!-- 第三段：操作按钮组（居中） -->
+                    <div class="pomo-actions-row">
+                        <button class="btn-action" id="pomoStartBtn" onclick="togglePomoTimer()">▶ 开始烘焙</button>
+                        <button class="btn-action secondary" onclick="resetPomoTimer()">↺ 重置</button>
+                    </div>
+
+                </div>
+
+                <!-- 陪读台词气泡流 -->
+                <div class="pomo-bubble-stream" id="pomoBubbleStream"></div>
+            </div>
         </div>
     </div>
-</div>
+
+    <!-- CHAR 选择浮层 -->
+    <div class="sub-page" id="page-pomo-char-picker" style="z-index: 100;">
+        <div class="sub-page-header">
+            <button class="header-btn" onclick="closeSubModal('page-pomo-char-picker')">‹ 返回</button>
+            <span style="font-size:15px; font-weight:600;">选择烘焙师</span>
+            <span style="width:40px;"></span>
+        </div>
+        <div class="sub-page-body" id="pomo-char-picker-list"></div>
+    </div>
+
+    <!-- 番茄料理图鉴（收集屏） -->
+    <div class="sub-page" id="page-pomo-collection" style="z-index: 100;">
+        <div class="sub-page-header">
+            <button class="header-btn" onclick="closeSubModal('page-pomo-collection')">‹ 返回</button>
+            <span style="font-size:15px; font-weight:600;">📖 番茄料理图鉴</span>
+            <span style="width:40px;"></span>
+        </div>
+        <div class="sub-page-body" style="background:linear-gradient(180deg, #fff4ec 0%, #ffe4d2 100%);" id="pomo-collection-body">
+            <!-- 由 JS 动态渲染 -->
+        </div>
+    </div>
 
 <!-- 2. 大转盘 -->
 <div class="sub-page" id="page-couple-wheel">
