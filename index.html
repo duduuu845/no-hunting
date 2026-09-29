@@ -1323,8 +1323,13 @@
             <button class="btn-action small" onclick="addMcpServer()">+ 添加</button>
         </div>
         <div class="sub-page-body">
-            <div style="font-size:12px; color:var(--text-sub); line-height:1.5;">
-                在这里添加本机运行的 MCP 服务地址。AI 将能感知你的手机状态。
+            <div style="font-size:12px; color:var(--text-sub); line-height:1.6;">
+                在这里添加 MCP 服务地址（标准 Streamable HTTP 或简化 JSON-RPC 均可，已自动兼容握手与会话）。添加后点击「测试」验证连通性，聊天时 AI 将能调用服务提供的工具。
+            </div>
+            <div style="font-size:11px; color:var(--text-sub); background:rgba(0,122,255,0.06); border:0.5px dashed var(--ios-blue); border-radius:10px; padding:8px 10px; line-height:1.6;">
+                💡 如果 MCP 是本地 stdio 类型（用 npx / uvx 启动、没有网址），浏览器无法直连，需要先用桥接工具转成 HTTP，例如：<br>
+                <span style="word-break:break-all;">npx @mavenworks/supergateway --stdio --port 8000</span><br>
+                然后填 <span style="word-break:break-all;">http://127.0.0.1:8000/mcp</span>
             </div>
             <div id="mcp-server-list"></div>
         </div>

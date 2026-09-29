@@ -70,10 +70,13 @@ const ImageDB = (() => {
     return { put, get, del, clear, estimate };
 })();
 
-// ==================== 本地 MCP 客户端 ====================
-// 支持配置多个 MCP 服务，自动发现工具，调用工具
+// ==================== 本地 MCP 客户端（标准 Streamable HTTP 兼容版） ====================
+// 自动完成 initialize 握手 + Session 管理 + SSE 响应解析；
+// 同时兼容旧的"裸 JSON-RPC"简化端点。
 const McpClient = (() => {
-    // 从 localStorage 读取已配置的 MCP 服务列表
+    // 会话缓存：url -> { id, ts }（页面刷新后会自动重新握手）
+    const sessionCache = {};
+
     function getServers() {
         try {
             return JSON.parse(localStorage.getItem('sr_mcp_servers') || '[]');
@@ -86,22 +89,115 @@ const McpClient = (() => {
         localStorage.setItem('sr_mcp_servers', JSON.stringify(list));
     }
 
-    // 发送 JSON-RPC 请求到 MCP 服务
-    async function rpc(serverUrl, method, params = {}, id = Date.now()) {
+    // 解析 MCP 响应：普通 JSON 或 SSE 流（event: message / data: {...}）
+    async function parseMcpResponse(res) {
+        const ctype = (res.headers.get('content-type') || '').toLowerCase();
+        if (ctype.includes('text/event-stream')) {
+            const text = await res.text();
+            const dataLines = [];
+            text.split(/\r?\n/).forEach(line => {
+                const t = line.trim();
+                if (t.startsWith('data:')) dataLines.push(t.slice(5).trim());
+            });
+            if (dataLines.length) {
+                // 优先整段解析（单条消息），失败则逐条解析（多条消息）
+                try { return JSON.parse(dataLines.join('\n')); } catch (e) {}
+                for (const d of dataLines) {
+                    try { return JSON.parse(d); } catch (e) {}
+                }
+            }
+            throw new Error('MCP 返回了无法解析的 SSE 数据');
+        }
+        return await res.json();
+    }
+
+    // 与服务器建立会话：initialize 握手 + initialized 通知
+    async function ensureSession(serverUrl) {
+        if (sessionCache[serverUrl] && sessionCache[serverUrl].id) {
+            return sessionCache[serverUrl].id;
+        }
         const res = await fetch(serverUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json, text/event-stream'
+            },
             body: JSON.stringify({
                 jsonrpc: '2.0',
-                id: id,
-                method: method,
-                params: params
+                id: 'init_' + Date.now(),
+                method: 'initialize',
+                params: {
+                    protocolVersion: '2025-06-18',
+                    capabilities: {},
+                    clientInfo: { name: 'jinliequ-phone', version: '1.0.0' }
+                }
             })
         });
-        if (!res.ok) throw new Error(`MCP HTTP ${res.status}`);
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message || 'MCP 调用失败');
-        return data.result;
+        if (!res.ok) throw new Error(`MCP 握手失败 HTTP ${res.status}`);
+        const sessionId = res.headers.get('mcp-session-id');
+        const data = await parseMcpResponse(res);
+        if (data && data.error) throw new Error(data.error.message || 'MCP 初始化失败');
+        if (sessionId) {
+            sessionCache[serverUrl] = { id: sessionId, ts: Date.now() };
+            try {
+                await fetch(serverUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json, text/event-stream',
+                        'Mcp-Session-Id': sessionId
+                    },
+                    body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })
+                });
+            } catch (e) {}
+        }
+        return sessionId || null;
+    }
+
+    // 把底层错误翻译成用户能看懂的信息
+    function friendlyError(rawErr, serverUrl) {
+        const msg = String((rawErr && rawErr.message) || rawErr || '未知错误');
+        if (/failed to fetch/i.test(msg) || rawErr instanceof TypeError) {
+            return new Error(`连接失败：服务器未启动 / 地址写错 / 未开启 CORS 跨域 / https 页面访问 http 地址被浏览器拦截（${serverUrl}）`);
+        }
+        return new Error(msg);
+    }
+
+    // 发送 JSON-RPC 请求：优先标准协议（握手+session），失败自动回退裸 JSON-RPC
+    async function rpc(serverUrl, method, params = {}, id = Date.now()) {
+        let firstErr = null;
+        try {
+            const sessionId = await ensureSession(serverUrl);
+            const res = await fetch(serverUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/event-stream',
+                    ...(sessionId ? { 'Mcp-Session-Id': sessionId } : {})
+                },
+                body: JSON.stringify({ jsonrpc: '2.0', id, method, params })
+            });
+            if (!res.ok) throw new Error(`MCP HTTP ${res.status}`);
+            const data = await parseMcpResponse(res);
+            if (data && data.error) throw new Error(data.error.message || 'MCP 调用失败');
+            return data && data.result;
+        } catch (e) {
+            firstErr = e;
+        }
+        // 回退：某些简化端点不支持握手/session，直接裸 JSON-RPC
+        try {
+            const res2 = await fetch(serverUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', id: 'raw_' + Date.now(), method, params })
+            });
+            if (!res2.ok) throw new Error(`MCP HTTP ${res2.status}`);
+            const data2 = await res2.json();
+            if (data2 && data2.error) throw new Error(data2.error.message || 'MCP 调用失败');
+            return data2 && data2.result;
+        } catch (e2) {
+            throw friendlyError(e2 || firstErr, serverUrl);
+        }
     }
 
     // 列出某个 MCP 服务提供的所有工具
@@ -116,7 +212,6 @@ const McpClient = (() => {
             name: toolName,
             arguments: args
         });
-        // MCP 返回格式：result.content[0].text
         if (result && result.content && result.content.length) {
             const texts = result.content
                 .filter(c => c.type === 'text')
@@ -165,12 +260,32 @@ const McpClient = (() => {
         throw new Error(`未找到提供工具 [${toolName}] 的 MCP 服务`);
     }
 
+    // 根据参数 schema 造一个示例参数（用于提示 AI 怎么调用）
+    function sampleValue(p) {
+        const t = (p && p.type) || 'string';
+        if (t === 'integer' || t === 'number') return 1;
+        if (t === 'boolean') return true;
+        if (t === 'array') return [];
+        return '示例';
+    }
+    function exampleArgs(tool) {
+        const schema = tool.inputSchema || {};
+        const props = schema.properties || {};
+        const args = {};
+        (schema.required || []).forEach(k => { if (props[k]) args[k] = sampleValue(props[k]); });
+        const keys = Object.keys(props);
+        if (!Object.keys(args).length && keys.length) args[keys[0]] = sampleValue(props[keys[0]]);
+        return JSON.stringify(args);
+    }
+
     // 把工具列表格式化成 AI 能理解的文本，注入 system prompt
     function formatToolsForPrompt(tools) {
         if (!tools.length) return '';
         let text = '\n\n[可用的本地 MCP 工具]\n';
-        text += '你可以在需要时，通过输出以下格式来调用这些工具：\n';
-        text += '[tool_call: 工具名] 参数JSON [/tool_call]\n\n';
+        text += '当对话内容确实需要这些工具的能力（查数据/计算/获取实时信息/操作外部系统）时，你必须主动调用工具获取真实结果，绝不能编造。调用格式如下（严格一行，工具名必须与列表完全一致）：\n';
+        text += '[tool_call: 工具名] {"参数名": 值} [/tool_call]\n\n';
+        text += `调用示例：\n[tool_call: ${tools[0].name}] ${exampleArgs(tools[0])} [/tool_call]\n\n`;
+        text += '可用工具列表：\n';
         tools.forEach(t => {
             text += `- ${t.name}: ${t.description}\n`;
             if (t.inputSchema && t.inputSchema.properties) {
@@ -180,7 +295,17 @@ const McpClient = (() => {
         return text;
     }
 
-    return { getServers, saveServers, listTools, callTool, collectAllTools, invoke, formatToolsForPrompt };
+    // 测试单个服务连通性，返回 { ok, tools, error }
+    async function testConnection(serverUrl) {
+        try {
+            const tools = await listTools(serverUrl);
+            return { ok: true, tools };
+        } catch (e) {
+            return { ok: false, error: e.message };
+        }
+    }
+
+    return { getServers, saveServers, listTools, callTool, collectAllTools, invoke, formatToolsForPrompt, testConnection };
 })();
 
 // 判断一个字符串是否是 dataURL 或 http 图片地址
@@ -6389,6 +6514,7 @@ function renderMcpServerList() {
                         <label style="font-size:11px; display:flex; align-items:center; gap:4px;">
                             <input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="toggleMcpServer(${idx}, this.checked)"> 启用
                         </label>
+                        <button class="btn-action secondary small" onclick="testMcpServer(${idx}, this)">测试</button>
                         <button class="btn-action danger small" onclick="deleteMcpServer(${idx})">删除</button>
                     </div>
                 </div>
@@ -6396,6 +6522,23 @@ function renderMcpServerList() {
             </div>
         `;
     });
+}
+
+// 测试单个 MCP 服务连通性，展示具体结果或错误原因
+async function testMcpServer(idx, btn) {
+    const servers = McpClient.getServers();
+    const s = servers[idx];
+    if (!s) return;
+    const orig = btn ? btn.innerText : '';
+    if (btn) { btn.disabled = true; btn.innerText = '测试中...'; }
+    const r = await McpClient.testConnection(s.url);
+    if (btn) { btn.disabled = false; btn.innerText = orig; }
+    if (r.ok) {
+        const names = r.tools.map(t => t.name).join('、') || '（该服务没有任何工具）';
+        openAlert(`✅ 连接成功！\n\n发现 ${r.tools.length} 个工具：\n${names}\n\n聊天时 AI 已能调用这些工具。`);
+    } else {
+        openAlert(`❌ 连接失败：\n\n${r.error}`);
+    }
 }
 
 function addMcpServer() {
