@@ -70,6 +70,119 @@ const ImageDB = (() => {
     return { put, get, del, clear, estimate };
 })();
 
+// ==================== 本地 MCP 客户端 ====================
+// 支持配置多个 MCP 服务，自动发现工具，调用工具
+const McpClient = (() => {
+    // 从 localStorage 读取已配置的 MCP 服务列表
+    function getServers() {
+        try {
+            return JSON.parse(localStorage.getItem('sr_mcp_servers') || '[]');
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function saveServers(list) {
+        localStorage.setItem('sr_mcp_servers', JSON.stringify(list));
+    }
+
+    // 发送 JSON-RPC 请求到 MCP 服务
+    async function rpc(serverUrl, method, params = {}, id = Date.now()) {
+        const res = await fetch(serverUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: id,
+                method: method,
+                params: params
+            })
+        });
+        if (!res.ok) throw new Error(`MCP HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message || 'MCP 调用失败');
+        return data.result;
+    }
+
+    // 列出某个 MCP 服务提供的所有工具
+    async function listTools(serverUrl) {
+        const result = await rpc(serverUrl, 'tools/list', {});
+        return (result && result.tools) ? result.tools : [];
+    }
+
+    // 调用某个工具
+    async function callTool(serverUrl, toolName, args = {}) {
+        const result = await rpc(serverUrl, 'tools/call', {
+            name: toolName,
+            arguments: args
+        });
+        // MCP 返回格式：result.content[0].text
+        if (result && result.content && result.content.length) {
+            const texts = result.content
+                .filter(c => c.type === 'text')
+                .map(c => c.text);
+            return texts.join('\n') || JSON.stringify(result);
+        }
+        return JSON.stringify(result);
+    }
+
+    // 汇总所有已启用 MCP 服务的工具列表（用于注入 system prompt）
+    async function collectAllTools() {
+        const servers = getServers().filter(s => s.enabled);
+        const allTools = [];
+        for (const server of servers) {
+            try {
+                const tools = await listTools(server.url);
+                tools.forEach(t => {
+                    allTools.push({
+                        serverUrl: server.url,
+                        serverName: server.name,
+                        name: t.name,
+                        description: t.description || '',
+                        inputSchema: t.inputSchema || {}
+                    });
+                });
+            } catch (e) {
+                console.warn(`MCP 服务 [${server.name}] 连接失败:`, e.message);
+            }
+        }
+        return allTools;
+    }
+
+    // 尝试执行一个工具调用（自动找到对应的服务地址）
+    async function invoke(toolName, args = {}) {
+        const servers = getServers().filter(s => s.enabled);
+        for (const server of servers) {
+            try {
+                const tools = await listTools(server.url);
+                if (tools.some(t => t.name === toolName)) {
+                    return await callTool(server.url, toolName, args);
+                }
+            } catch (e) {
+                // 忽略，继续尝试下一个
+            }
+        }
+        throw new Error(`未找到提供工具 [${toolName}] 的 MCP 服务`);
+    }
+
+    // 把工具列表格式化成 AI 能理解的文本，注入 system prompt
+    function formatToolsForPrompt(tools) {
+        if (!tools.length) return '';
+        let text = '\n\n[可用的本地 MCP 工具]\n';
+        text += '你可以在需要时，通过输出以下格式来调用这些工具：\n';
+        text += '[tool_call: 工具名] 参数JSON [/tool_call]\n\n';
+        tools.forEach(t => {
+            text += `- ${t.name}: ${t.description}\n`;
+            if (t.inputSchema && t.inputSchema.properties) {
+                text += `  参数: ${JSON.stringify(t.inputSchema.properties)}\n`;
+            }
+        });
+        return text;
+    }
+
+    return { getServers, saveServers, listTools, callTool, collectAllTools, invoke, formatToolsForPrompt };
+})();
+
 // 判断一个字符串是否是 dataURL 或 http 图片地址
 function isImageUrl(s) {
     return typeof s === 'string' && (s.startsWith('data:image') || s.startsWith('http'));
@@ -547,7 +660,8 @@ async function renderChatHistory() {
     if (!chatView) return;
     chatView.innerHTML = '';
 
-    // 关键改动：严格按数组顺序逐条渲染，图片用 await 等回来再插
+    const needFetch = [];
+
     for (const item of appData.chatHistory) {
         if (item.recalled) {
             renderRecalledItem(chatView, item);
@@ -558,38 +672,28 @@ async function renderChatHistory() {
             case 'sticker':
                 renderStickerItem(chatView, item);
                 break;
-
             case 'realImg':
             case 'aiImg': {
-                let url = item.mediaUrl || '';
-                // 如果是 IndexedDB 存的，等回来再渲染
-                if (!url && item.imgKey) {
-                    try {
-                        url = await ImageDB.get(item.imgKey) || '';
-                    } catch (e) {
-                        console.warn('读取图片失败:', e);
-                    }
-                }
-                if (item.type === 'realImg') {
-                    renderRealImgItem(chatView, { ...item, mediaUrl: url });
+                if (item.mediaUrl && item.mediaUrl.startsWith('data:')) {
+                    if (item.type === 'realImg') renderRealImgItem(chatView, item);
+                    else renderAiImgItem(chatView, item);
+                } else if (item.imgKey) {
+                    needFetch.push({ item, chatView });
                 } else {
-                    renderAiImgItem(chatView, { ...item, mediaUrl: url });
+                    if (item.type === 'realImg') renderRealImgItem(chatView, item);
+                    else renderAiImgItem(chatView, item);
                 }
                 break;
             }
-
             case 'fakeImg':
                 renderFakeImgItem(chatView, item);
                 break;
-
             case 'voice':
                 renderVoiceItem(chatView, item);
                 break;
-
             case 'file':
                 renderFileItem(chatView, item);
                 break;
-
             default:
                 if (item.isSticker && item.text && item.text.startsWith('[表情]')) {
                     const url = item.text.replace('[表情]', '');
@@ -597,6 +701,24 @@ async function renderChatHistory() {
                 } else {
                     appendBubbleToUI(item.role, item.text, item.time, item.quote, item.id);
                 }
+        }
+    }
+
+    for (const { item, chatView } of needFetch) {
+        try {
+            const dataUrl = await ImageDB.get(item.imgKey);
+            if (dataUrl) {
+                if (item.type === 'realImg') {
+                    renderRealImgItem(chatView, { ...item, mediaUrl: dataUrl });
+                } else {
+                    renderAiImgItem(chatView, { ...item, mediaUrl: dataUrl });
+                }
+            } else {
+                if (item.type === 'realImg') renderRealImgItem(chatView, item);
+                else renderAiImgItem(chatView, item);
+            }
+        } catch (e) {
+            console.warn('读取图片失败:', e);
         }
     }
 
@@ -763,6 +885,15 @@ async function triggerAiReply() {
     const currentMemo = localStorage.getItem('sr_memo') || '';
     const memoChanged = currentMemo.trim() !== (appData.lastMemoCommented || '').trim();
     systemPrompt += `[生活作息与随手记]:\n${JSON.stringify(appData.schedules)}\n随手记: ${currentMemo}\n\n`;
+    // --- 注入 MCP 工具信息 ---
+    try {
+        const mcpTools = await McpClient.collectAllTools();
+        if (mcpTools.length) {
+            systemPrompt += McpClient.formatToolsForPrompt(mcpTools);
+        }
+    } catch (e) {
+        console.warn('MCP 工具收集失败:', e);
+    }
     if (memoChanged && currentMemo.trim()) {
         systemPrompt += `[随手记新动态]: user 刚刚在随手记里写了新内容，你可以用 [memo_comment]...[/memo_comment] 标签吐槽一句（只在你真的有话想说时才用，不要强行吐槽）。\n\n`;
     } else {
@@ -973,6 +1104,40 @@ async function triggerAiReply() {
             });
             if (appData.auditLogs.length > 50) appData.auditLogs.pop();
         }
+
+    // --- 处理 AI 发出的 [tool_call: xxx] 指令 ---
+    const toolCallRegex = /\[tool_call:\s*([^\]]+)\]([\s\S]*?)\[\/tool_call\]/g;
+    let toolCallMatch;
+    const toolResults = [];
+    while ((toolCallMatch = toolCallRegex.exec(fullReply)) !== null) {
+        const toolName = toolCallMatch[1].trim();
+        let args = {};
+        try { args = JSON.parse(toolCallMatch[2].trim()); } catch (e) {}
+        try {
+            const result = await McpClient.invoke(toolName, args);
+            toolResults.push(`[${toolName}] 结果: ${result}`);
+        } catch (e) {
+            toolResults.push(`[${toolName}] 调用失败: ${e.message}`);
+        }
+    }
+    fullReply = fullReply.replace(toolCallRegex, '').trim();
+
+    // 如果有工具调用结果，把结果作为新消息再发给 AI 一次
+    if (toolResults.length) {
+        const toolMsg = `[系统返回的工具调用结果]\n${toolResults.join('\n\n')}\n\n请基于这些结果，用你的角色口吻继续回复。`;
+        // 把工具结果加入对话历史，然后递归调用一次
+        appData.chatHistory.push({
+            id: 'tool_result_' + Date.now(),
+            role: 'user',
+            text: toolMsg,
+            time: new Date().toLocaleTimeString().slice(0, 5),
+            quote: null,
+            _isToolResult: true
+        });
+        // 简单处理：直接再触发一次 AI 回复
+        setTimeout(() => triggerAiReply(), 500);
+        return;
+    }
 
         // --- 拟人化：一句一句跳出文字气泡 ---
         const rawBubbles = fullReply.split(/\n\s*\n/).map(b => b.trim()).filter(b => b.length > 0);
@@ -2175,6 +2340,7 @@ async function generateDailyStoryPhoto() {
     closeAppDialog();
     const chatMsgs = appData.chatHistory.slice(-8).map(m => m.text).join(' ');
     const autoPrompt = `A warm romantic illustration, high quality, aesthetic, a photo of a couple together: ${chatMsgs.slice(0, 120)}`;
+
     const imgUrl = await callImageApiWithUserPhoto(autoPrompt);
     if (imgUrl) {
         setPolaroidImage(imgUrl);
@@ -6196,4 +6362,96 @@ function renderRecalledItem(chatView, item) {
         foldNotice.onclick = () => foldNotice.classList.toggle('open');
         chatView.appendChild(foldNotice);
     }
+}
+
+// ==================== MCP 设置页逻辑 ====================
+function openMcpSettings() {
+    renderMcpServerList();
+    updateMcpStatus();
+    openSubModal('page-mcp-settings');
+}
+
+function renderMcpServerList() {
+    const cont = document.getElementById('mcp-server-list');
+    if (!cont) return;
+    const servers = McpClient.getServers();
+    cont.innerHTML = '';
+    if (!servers.length) {
+        cont.innerHTML = `<div style="text-align:center; font-size:12px; color:var(--text-sub); padding:30px 0;">还没有配置 MCP 服务。<br>点击右上角「+ 添加」。</div>`;
+        return;
+    }
+    servers.forEach((s, idx) => {
+        cont.innerHTML += `
+            <div class="action-card" style="padding:12px; margin-bottom:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-size:13px; font-weight:600;">${s.name || '未命名服务'}</div>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <label style="font-size:11px; display:flex; align-items:center; gap:4px;">
+                            <input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="toggleMcpServer(${idx}, this.checked)"> 启用
+                        </label>
+                        <button class="btn-action danger small" onclick="deleteMcpServer(${idx})">删除</button>
+                    </div>
+                </div>
+                <div style="font-size:11px; color:var(--text-sub); word-break:break-all; margin-top:6px;">${s.url}</div>
+            </div>
+        `;
+    });
+}
+
+function addMcpServer() {
+    openAppDialog('input-double', {
+        title: "添加 MCP 服务",
+        field1: "服务名称（如 LoverConnect）",
+        field2: "MCP 地址（如 http://127.0.0.1:5000/mcp/xxx）",
+        onConfirm: (name, url) => {
+            if (!name || !url) return;
+            const servers = McpClient.getServers();
+            servers.push({ name, url, enabled: true });
+            McpClient.saveServers(servers);
+            renderMcpServerList();
+            updateMcpStatus();
+            openAlert('MCP 服务已添加！');
+        }
+    });
+}
+
+function toggleMcpServer(idx, enabled) {
+    const servers = McpClient.getServers();
+    if (servers[idx]) {
+        servers[idx].enabled = enabled;
+        McpClient.saveServers(servers);
+        updateMcpStatus();
+    }
+}
+
+function deleteMcpServer(idx) {
+    openAppDialog('confirm', {
+        title: "删除 MCP 服务",
+        msg: "确定要删除这个 MCP 服务吗？",
+        onConfirm: () => {
+            const servers = McpClient.getServers();
+            servers.splice(idx, 1);
+            McpClient.saveServers(servers);
+            renderMcpServerList();
+            updateMcpStatus();
+        }
+    });
+}
+
+async function updateMcpStatus() {
+    const servers = McpClient.getServers().filter(s => s.enabled);
+    const el = document.getElementById('sub-mcp-status');
+    if (!el) return;
+    if (!servers.length) {
+        el.innerText = '未配置';
+        return;
+    }
+    let okCount = 0;
+    for (const s of servers) {
+        try {
+            await McpClient.listTools(s.url);
+            okCount++;
+        } catch (e) {}
+    }
+    el.innerText = `${okCount}/${servers.length} 个服务在线`;
 }
