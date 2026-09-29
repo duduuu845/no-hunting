@@ -19,50 +19,102 @@
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 
     <!-- 引入独立皮肤文件 -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=17">
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b0b1e">
 </head>
 <body>
 
 <div class="phone-container" id="main-container">
     <!-- 锁屏层 (单击全屏任意处直接解锁) -->
     <div class="lockscreen-overlay" id="lockscreen" onclick="unlockScreen()">
-        <div class="lock-time-box">
-            <div class="lock-date" id="lock-date-text">9月23日 星期三</div>
-            <div class="lock-clock" id="lock-clock-text">00:00</div>
-        </div>
-        
-        <div class="lock-card-box" id="lock-unread-card">
-            <div class="lock-card-header">
-                <span id="lock-sender-name">🐺 宋凛</span>
-                <span style="color:rgba(255,255,255,0.4);">· 刚刚</span>
-            </div>
-            <div class="lock-card-text">你收到一条新消息</div>
+        <!-- 背景层：天空 + 海面 -->
+        <div class="ls-sky"></div>
+        <div class="ls-sea"></div>
+
+        <!-- 顶部居中可编辑文本（小猫脸位置） -->
+        <div class="ls-top-quote" contenteditable="true" spellcheck="false">˶• ω •˶</div>
+
+        <!-- 超大时间（实时刷新，可编辑） -->
+        <div class="ls-big-time" contenteditable="true" spellcheck="false" id="ls-clock-text">00:00</div>
+
+        <!-- 日期三行 -->
+        <div class="ls-date-block">
+            <div class="ls-date-line" id="ls-date-line-1">9月30日</div>
+            <div class="ls-date-line" id="ls-date-line-2">星期三</div>
+            <div class="ls-date-line" id="ls-date-line-3">九月初十</div>
         </div>
 
+        <!-- 右侧竖排玻璃卡片 -->
+        <div class="ls-cards">
+            <div class="ls-card ls-card-steps">
+                <svg class="ls-ring" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="4"/>
+                    <circle cx="50" cy="50" r="44" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="276.5" stroke-dashoffset="193" transform="rotate(-90 50 50)"/>
+                </svg>
+                <div class="ls-steps-inner">
+                    <div class="ls-steps-num" id="ls-steps-num">269</div>
+                    <svg class="ls-walk" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="13" cy="4.5" r="1.8" fill="#fff" stroke="none"/>
+                        <path d="M13 7 L10 11 L12 13 L10 18"/>
+                        <path d="M13 7 L15 10 L18 11"/>
+                        <path d="M12 13 L8 15"/>
+                        <path d="M10 18 L8 21 M10 18 L13 21"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="ls-card">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="13" r="7"/>
+                    <path d="M12 10 L12 13 L14.5 14.5"/>
+                    <path d="M5 5 L2.5 7.5 M19 5 L21.5 7.5"/>
+                    <path d="M9 20 L8 22 M15 20 L16 22"/>
+                </svg>
+                <div class="ls-card-label">待开启</div>
+            </div>
+            <div class="ls-card">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="4.5"/>
+                    <path d="M12 2.5 V5 M12 19 V21.5 M2.5 12 H5 M19 12 H21.5 M5 5 L6.8 6.8 M17.2 17.2 L19 19 M19 5 L17.2 6.8 M6.8 17.2 L5 19"/>
+                </svg>
+                <div class="ls-card-label" id="ls-weather-temp">24°</div>
+            </div>
+        </div>
+
+        <!-- 底部空心心形 -->
+        <div class="ls-heart">
+            <svg viewBox="0 0 100 100" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M50 82 C20 60 10 40 18 26 C25 14 42 14 50 28 C58 14 75 14 82 26 C90 40 80 60 50 82 Z"/>
+            </svg>
+        </div>
         <div class="lock-unlock-hint">
             <span>轻触解锁</span>
             <span>⌃</span>
         </div>
     </div>
 
-    <!-- 1. 聊天独立 Header (左随手记，中备注+心声，右搜索+菜单) -->
+<!-- 1. 聊天独立 Header (左返回联系人，中联系人+心声，右随手记+搜索+菜单) -->
     <div class="chat-header" id="chat-header">
-        <button class="header-btn" onclick="toggleLeftDrawer()" title="随手记">📝</button>
+        <button class="header-btn" onclick="goBackToContacts()" title="返回联系人">‹</button>
         <div class="header-title-box" onclick="toggleHeartVoice()">
-            <div class="header-title-text" id="header-contact-name">宋凛</div>
+            <div class="header-title-text" id="header-contact-name">AI 伴侣</div>
             <div class="header-status-text" id="header-contact-status">在线 · 正在想你 ▾</div>
         </div>
         <div style="display:flex; gap:6px;">
+            <button class="header-btn" onclick="toggleLeftDrawer()" title="随手记">📝</button>
             <button class="header-btn" onclick="openSearchModal()" title="搜索">🔍</button>
             <button class="header-btn" onclick="toggleTopMenu()" title="菜单">⋯</button>
         </div>
     </div>
 
-    <!-- 2. 其他三大页面独立 Header -->
+    <!-- 2. 其他四大页面独立 Header -->
     <div class="general-header" id="general-header">
-        <h1 id="general-header-title">专属日程</h1>
+        <h1 id="general-header-title">联系人</h1>
         <div style="display:flex; align-items:center; gap:8px;">
-            <div class="pixel-day-badge" id="anniversary-d-day">D533</div>
+            <button class="header-btn" id="general-add-btn" onclick="openAddGroupDialog()" title="添加群组">＋</button>
+            <div class="pixel-day-badge" id="anniversary-d-day" style="display:none;">D1</div>
             <button class="header-btn" onclick="toggleLeftDrawer()" title="随手记" id="general-memo-btn">📝</button>
         </div>
     </div>
@@ -70,7 +122,7 @@
     <!-- 心声小浮窗 (纯净心声标签) -->
     <div class="heart-voice-pop" id="heart-voice-pop">
         <div style="font-size:11px; font-weight:600; color:var(--text-sub); margin-bottom:4px;">心声：</div>
-        <div id="heart-voice-content">看着她忙前忙后搓小手机，嘴上不说，其实心里早被这只小狐狸填满了。</div>
+        <div id="heart-voice-content">（此刻心里很安静，什么也没想。）</div>
     </div>
 
     <!-- 右上角功能键浮窗 -->
@@ -84,24 +136,31 @@
     <div class="left-drawer" id="left-drawer">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <h3 style="font-size:14px;">📌 随手记</h3>
-            <button class="header-btn" onclick="toggleLeftDrawer()">✕</button>
-        </div>
-        <div class="memo-block">
-            <textarea class="drawer-textarea" id="memo-input" placeholder="随时记下今天的碎碎念、想吃的、对某人的抱怨..." oninput="saveMemo()"></textarea>
-        </div>
-        <div class="memo-block" style="background:var(--char-bubble);">
-            <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600;">
-                <span id="memo-char-avatar">🐺</span>
-                <span>宋凛：</span>
-            </div>
-            <div id="memo-ai-comment" style="font-size:13px; color:var(--text-sub); line-height:1.45; margin-top:4px;">
-                某人又在小本本上暗戳戳记我黑状了。
+            <div style="display:flex; gap:6px; align-items:center;">
+                <button class="btn-action secondary small" style="font-size:10.5px; padding:3px 8px;" onclick="openMemoSettings()">⚙️ 设置</button>
+                <button class="header-btn" onclick="toggleLeftDrawer()">✕</button>
             </div>
         </div>
+        <!-- 我的便利贴（图钉） -->
+        <div class="pin-note">
+            <div class="pin-note-head">
+                <span class="pin-avatar user-pin-avatar" id="memo-user-avatar">🦊</span>
+                <span style="font-size:11px; color:var(--text-sub);">我的碎碎念</span>
+                <span class="pin-thumb">📌</span>
+            </div>
+            <textarea class="drawer-textarea" id="memo-input" placeholder="随时记下今天的碎碎念、想吃的、想吐槽的..." oninput="saveMemo()"></textarea>
+        </div>
+        <!-- 各 char 的便利贴（图钉）：每轮短评 + 每晚一句当日备忘，一个角色一张贴 -->
+        <div id="memo-char-pins"></div>
     </div>
 
     <!-- 主体视区：4大主Tab -->
     <div class="main-body">
+        <!-- Tab 0: 联系人列表页 (点击联系人进入聊天) -->
+        <div class="view-panel" id="view-contacts" style="background:var(--bg-page); padding:10px 12px;">
+            <div id="contacts-list" style="display:flex; flex-direction:column; gap:8px; overflow-y:auto;"></div>
+        </div>
+
         <!-- Tab 1: iMessage 聊天页 -->
         <div class="view-panel active" id="view-chat-container">
             <div class="chat-view" id="view-chat" onclick="closeAllPopups()"></div>
@@ -360,7 +419,7 @@
                         <span>📝 今日日程</span>
                         <span id="todo-date-badge" style="font-size:11px; font-weight:normal; color:var(--text-sub);"></span>
                     </div>
-                    <div style="display:flex; gap:6px;">
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
                         <button class="btn-action secondary small" onclick="openEditDayMarkerDialog()">🏷️ 标记此日</button>
                         <button class="btn-action small" onclick="openCreateTodoDialog()">+ 待办</button>
                     </div>
@@ -369,26 +428,40 @@
             </div>
         </div>
 
-        <div class="view-panel" id="view-discover" style="padding:14px; gap:12px; background:var(--bg-page);">
+        <div class="view-panel" id="view-discover" style="padding:14px; gap:12px; background:var(--bg-page); overflow-y:auto;">
+            <!-- MCP 扩展区：配置 MCP 后自动出现，无需改代码 -->
+            <div class="menu-list" id="discover-mcp-section" style="display:none;">
+                <div class="menu-item" style="cursor:default;">
+                    <div class="menu-item-left">
+                        <span class="menu-icon">🧩</span>
+                        <div>
+                            <div class="menu-title">MCP 扩展工具</div>
+                            <div class="menu-sub" id="discover-mcp-count">已接入 0 个外部工具</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="discover-mcp-tools" style="padding:4px 10px 10px; display:flex; flex-direction:column; gap:6px;"></div>
+            </div>
+
+            <!-- 功能工坊 -->
             <div class="menu-list">
                 <div class="menu-item" onclick="openPomodoroPage()">
                     <div class="menu-item-left">
                         <span class="menu-icon">🍅</span>
                         <div>
-                            <div class="menu-title">番茄烘焙工坊</div>
-                            <div class="menu-sub">专注 25 分钟，TA 在旁边陪你</div>
+                            <div class="menu-title">番茄专注</div>
+                            <div class="menu-sub">25 分钟，和 TA 一起保持专注</div>
                         </div>
                     </div>
                     <span class="menu-arrow">›</span>
-                </div>           
- 
+                </div>
 
                 <div class="menu-item" onclick="openSubModal('page-couple-wheel')">
                     <div class="menu-item-left">
                         <span class="menu-icon">🎡</span>
                         <div>
                             <div class="menu-title">大转盘</div>
-                            <div class="menu-sub">一起选一个吧</div>
+                            <div class="menu-sub">不知道选什么？让 TA 帮你决定</div>
                         </div>
                     </div>
                     <span class="menu-arrow">›</span>
@@ -399,7 +472,7 @@
                         <span class="menu-icon">🔮</span>
                         <div>
                             <div class="menu-title">玄学大师</div>
-                            <div class="menu-sub">星座 · 塔罗 · 八字 </div>
+                            <div class="menu-sub">星座 · 塔罗 · 八字</div>
                         </div>
                     </div>
                     <span class="menu-arrow">›</span>
@@ -409,8 +482,8 @@
                     <div class="menu-item-left">
                         <span class="menu-icon">📄</span>
                         <div>
-                            <div class="menu-title">文档长篇分析</div>
-                            <div class="menu-sub">上传文档，让 TA 帮你做表格、计划</div>
+                            <div class="menu-title">文档分析</div>
+                            <div class="menu-sub">上传文档，让 TA 帮你梳理成表格、计划</div>
                         </div>
                     </div>
                     <span class="menu-arrow">›</span>
@@ -421,14 +494,13 @@
                         <span class="menu-icon">🎮</span>
                         <div>
                             <div class="menu-title">小游戏</div>
-                            <div class="menu-sub">和 TA 一起玩的网页小游戏</div>
+                            <div class="menu-sub">和 TA 一起玩</div>
                         </div>
                     </div>
                     <span class="menu-arrow">›</span>
                 </div>
             </div>
         </div>
-
         <!-- Tab 5: 设置中心 (导入导出并列放在最末尾) -->
         <div class="view-panel" id="view-settings">
             <div class="menu-list">
@@ -487,12 +559,12 @@
                     <span class="menu-arrow">›</span>
                 </div>
 
-                <div class="menu-item" onclick="openSubModal('page-appearance-setting')">
+                <div class="menu-item" onclick="openAppearanceSetting()">
                     <div class="menu-item-left">
                         <span class="menu-icon">🎨</span>
                         <div>
                             <div class="menu-title">外观设置</div>
-                            <div class="menu-sub">夜间深色 / 自定义壁纸</div>
+                            <div class="menu-sub">字体 / 气泡 / 颜色 / 背景 / 间距</div>
                         </div>
                     </div>
                     <span class="menu-arrow">›</span>
@@ -525,12 +597,25 @@
                     <button class="btn-action" style="padding:12px 8px; font-size:12px;" onclick="openExportOptionsDialog()">💾 导出数据备份</button>
                     <button class="btn-action secondary" style="padding:12px 8px; font-size:12px;" onclick="document.getElementById('import-file-input').click()">📂 导入恢复数据</button>
                     <button class="btn-action secondary" style="padding:12px 8px; font-size:12px;" onclick="showStorageUsage()">📊 查看存储占用</button>
+                    <button class="btn-action danger" style="padding:12px 8px; font-size:12px; background:#ef4444; color:#fff;" onclick="confirmClearAllData()">🗑️ 清空所有数据</button>
                     <input type="file" id="import-file-input" style="display:none;" accept=".json" onchange="importBackupData(this)">
                 </div>
             </div>
         </div>
     </div>
 
+
+    <!-- 纪念日列表子页（D徽章双击进入） -->
+    <div class="sub-page" id="page-anniversary-list">
+        <div class="sub-page-header">
+            <button class="header-btn" onclick="closeSubModal('page-anniversary-list')">‹ 返回</button>
+            <span style="font-size:15px; font-weight:600;">🗓️ 纪念日</span>
+            <span style="width:40px;"></span>
+        </div>
+        <div class="sub-page-body">
+            <div id="anniversary-list-box" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;"></div>
+        </div>
+    </div>
 
     <!-- 表情包快捷浮窗 (联动真实分类) -->
     <div class="sticker-popup" id="sticker-popup">
@@ -543,7 +628,7 @@
 
     <!-- 底部固定主导航栏 -->
     <div class="bottom-nav">
-        <button class="nav-item active" onclick="switchMainTab('chat-container', '宋凛', this)">
+        <button class="nav-item active" onclick="switchMainTab('contacts', '联系人', this)">
             <span class="nav-icon">💬</span>
             <span>聊天</span>
         </button>
@@ -582,20 +667,21 @@
             <span style="width:40px;"></span>
         </div>
         <div class="sub-page-body">
-            <div class="action-card" style="padding:14px; display:flex; gap:12px; align-items:center;">
-                <div style="width:54px; height:54px; border-radius:50%; overflow:hidden; background:#2c2c2e; display:flex; justify-content:center; align-items:center; font-size:24px;" id="detail-avatar">🐺</div>
-                <div style="flex:1;">
+            <div class="action-card" style="padding:14px; display:flex; flex-direction:row; gap:14px; align-items:center;">
+                <!-- 头像最左侧，点击可换 -->
+                <div style="width:60px; height:60px; border-radius:50%; overflow:hidden; background:#2c2c2e; display:flex; justify-content:center; align-items:center; font-size:28px; flex-shrink:0; cursor:pointer;" id="detail-avatar" title="点击更换头像" onclick="openAvatarEditor()">🐺</div>
+                <div style="flex:1; min-width:0;">
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <input type="text" id="detail-edit-name" value="宋凛" style="font-size:16px; font-weight:600; border:none; background:transparent; color:var(--text-main); outline:none; width:120px;" onchange="updateContactName(this.value)">
-                        <span style="font-size:10px; color:var(--ios-blue);">✎ 备注</span>
+                        <span style="font-size:10px; color:var(--text-sub); flex-shrink:0;">备注</span>
+                        <input type="text" id="detail-edit-name" value="AI 伴侣" style="font-size:16px; font-weight:600; border:none; background:transparent; color:var(--text-main); outline:none; width:100%; min-width:0; flex:1 1 auto; box-sizing:border-box; display:block;" onchange="updateContactName(this.value)">
                     </div>
-                    <div style="font-size:11px; color:var(--text-sub); margin-top:2px;" id="detail-real-name">宋凛</div>
+                    <div style="font-size:11px; color:var(--text-sub); margin-top:3px;">本名：<span id="detail-real-name">AI 伴侣</span></div>
                 </div>
             </div>
 
             <div class="action-card">
                 <div class="action-row" onclick="openDiaryPage()">
-                    <span>📖 凛の日记</span>
+                    <span>📖 聊天日记</span>
                     <span style="color:var(--text-sub);">›</span>
                 </div>
                 <div class="action-row" onclick="openFavoritesPage()">
@@ -624,11 +710,11 @@
         </div>
     </div>
 
-    <!-- 凛の日记 -->
+    <!-- 我的日记 -->
     <div class="sub-page" id="page-diary">
         <div class="sub-page-header">
             <button class="header-btn" onclick="closeSubModal('page-diary')">‹ 返回</button>
-            <span style="font-size:15px; font-weight:600;">凛の日记</span>
+            <span style="font-size:15px; font-weight:600;">我的日记</span>
             <span style="width:40px;"></span>
         </div>
         <div class="sub-page-body" id="diary-list-container"></div>
@@ -682,10 +768,10 @@
             <button class="header-btn" style="font-size:12px;" onclick="openPersonaSubList('char')">+ 新增</button>
         </div>
         <div class="sub-page-body">
-            <div style="font-size:12px; font-weight:600; color:var(--text-sub); margin-top:4px;">CHAR (伴侣角色)</div>
+            <div style="font-size:12px; font-weight:600; color:var(--text-sub); margin-top:4px;">👥 CHAR (伴侣角色)</div>
             <div class="persona-grid" id="char-persona-grid"></div>
             
-            <div style="font-size:12px; font-weight:600; color:var(--text-sub); margin-top:12px;">USER (用户自己)</div>
+            <div style="font-size:12px; font-weight:600; color:var(--text-sub); margin-top:12px;">👤 USER (用户自己)</div>
             <div class="persona-grid" id="user-persona-grid"></div>
         </div>
     </div>
@@ -731,13 +817,12 @@
             </div>
 
             <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
-                <button class="btn-action secondary" id="btn-set-active-persona" onclick="setActivePersonaCurrent()">✓ 设为当前使用身份</button>
                 <button class="btn-action danger" id="btn-del-persona" onclick="deleteCurrentPersonaEntry()">删除该身份</button>
             </div>
         </div>
     </div>
 
-    <!-- 世界书与记忆管理弹窗 -->
+<!-- 世界书与记忆管理弹窗 -->
     <div class="sub-page" id="modal-wb-hub">
         <div class="sub-page-header">
             <button class="header-btn" onclick="closeSubModal('modal-wb-hub')">‹ 返回</button>
@@ -843,7 +928,7 @@
                     <label style="font-size:11px; color:var(--text-sub);">卷宗标识 (如：卷一)</label>
                     <input type="text" class="dialog-input" id="edit-mem-title" placeholder="卷一">
                 </div>
-                <label style="font-size:11px; color:var(--text-sub);">记忆正文 (宋凛第一人称备忘)</label>
+                <label style="font-size:11px; color:var(--text-sub);">记忆正文 (对方第一人称备忘)</label>
                 <textarea class="dialog-input" style="height:150px;" id="edit-mem-content" placeholder="记录我们共同经历的事件与情绪..."></textarea>
                 <button class="btn-action danger small" id="btn-del-mem" style="margin-top:8px;" onclick="deleteCurrentMem()">删除此条记忆</button>
             </div>
@@ -906,7 +991,7 @@
     <div class="sub-page" id="page-journal-detail">
         <div class="sub-page-header">
             <button class="header-btn" onclick="closeSubModal('page-journal-detail')">‹ 返回</button>
-            <span style="font-size:15px; font-weight:600;" id="journal-date-title">双人手账</span>
+            <span style="font-size:15px; font-weight:600; cursor:pointer;" id="journal-date-title" onclick="toggleJournalCharPopup()">双人手账 <span style="font-size:11px; color:var(--ios-blue);" id="journal-title-char">选对象 ▾</span></span>
             <button class="btn-action small" onclick="saveJournalEntry()">保存</button>
         </div>
         <div class="sub-page-body">
@@ -920,22 +1005,20 @@
 
                 <!-- 对开便利贴信纸 (20字限额手账) -->
                 <div class="journal-duo-grid">
-                    <!-- 左：小狐狸随笔 -->
+                    <!-- 左：我的便利贴（图钉+头像） -->
                     <div class="journal-note-tape">
                         <div class="tape-header">
-                            <span class="tape-tag-fox">🦊 晚星的碎碎念</span>
-                            <span id="journal-fox-len" style="font-size:10px; color:var(--text-sub);">0/20</span>
+                            <span class="tape-tag-fox"><span id="journal-fox-avatar" class="journal-avatar">🦊</span> 我的碎碎念</span><span style="margin-left:auto; font-size:13px;">📌</span>
                         </div>
                         <textarea class="journal-textarea-clean" id="journal-fox-text" maxlength="20" placeholder="记下今天的一句话感受..." oninput="updateJournalLen()"></textarea>
                     </div>
 
-                    <!-- 右：笨老狗心声 -->
+                    <!-- 右：TA 的便利贴（图钉+头像） -->
                     <div class="journal-note-tape">
                         <div class="tape-header">
-                            <span class="tape-tag-wolf">🐺 宋凛的心声印章</span>
-                            <span id="journal-wolf-len" style="font-size:10px; color:var(--text-sub);">0/20</span>
+                            <span class="tape-tag-wolf" id="journal-wolf-tag"><span id="journal-wolf-avatar" class="journal-avatar">🐺</span> <span id="journal-wolf-name">TA</span> 的心声印章</span><span style="margin-left:auto; font-size:13px;">📌</span>
                         </div>
-                        <textarea class="journal-textarea-clean" id="journal-wolf-text" maxlength="20" placeholder="笨老狗的专属备忘..." oninput="updateJournalLen()"></textarea>
+                        <textarea class="journal-textarea-clean" id="journal-wolf-text" maxlength="20" placeholder="TA 的专属备忘..." oninput="updateJournalLen()"></textarea>
                     </div>
                 </div>
             </div>
@@ -974,7 +1057,7 @@
                     <div class="pomo-avatar-box" id="pomo-avatar-slot" onclick="openPomoCharPicker()">🐺</div>
                     <div class="pomo-supervisor-info">
                         <div class="pomo-supervisor-name">
-                            <span id="pomo-supervisor-title" onclick="openPomoCharPicker()">宋凛</span>
+                            <span id="pomo-supervisor-title" onclick="openPomoCharPicker()">AI 伴侣</span>
                             <span class="pomo-badge-online">烘焙中</span>
                             <span style="font-size:10px; color:var(--pomo-bay-blue); cursor:pointer; margin-left:auto;" onclick="openPomoCharPicker()">切换 ›</span>
                         </div>
@@ -1076,15 +1159,29 @@
     <div class="sub-page-header">
         <button class="header-btn" onclick="closeSubModal('page-couple-wheel')">‹ 返回</button>
         <span style="font-size:15px; font-weight:600;">🎡 大转盘</span>
-        <button class="btn-action small" onclick="openWheelEdit()">编辑</button>
+        <span style="width:40px;"></span>
     </div>
     <div class="sub-page-body">
+        <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
+            <label style="font-size:11px; color:var(--text-sub);">让谁陪你转？（可多选角色，不选默认只有你自己）</label>
+            <div id="wheel-char-picks" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+            <label style="font-size:11px; color:var(--text-sub); margin-top:4px;">主题（选一个方向，可让 TA 出选项）</label>
+            <input type="text" class="dialog-input" id="wheel-theme" placeholder="如：今晚吃什么 / 周末去哪玩 / 惩罚小游戏...">
+            <div style="display:flex; gap:6px;">
+                <button class="btn-action secondary small" style="flex:1;" onclick="wheelGenByAI()">🤖 让 TA 出选项</button>
+                <button class="btn-action secondary small" style="flex:1;" onclick="openWheelEdit()">✏️ 自己编辑选项</button>
+            </div>
+            <div style="font-size:10.5px; color:var(--text-sub);" id="wheel-options-hint">当前选项：默认 8 项</div>
+        </div>
         <div class="action-card" style="padding:24px 14px; display:flex; flex-direction:column; align-items:center; gap:14px;">
-            <div id="wheel-display" style="width:220px; height:220px; border-radius:50%; background:conic-gradient(#ff9bae 0deg 45deg, #ffcc00 45deg 90deg, #34c759 90deg 135deg, #007aff 135deg 180deg, #a855f7 180deg 225deg, #ff6b35 225deg 270deg, #0ea5e9 270deg 315deg, #ec4899 315deg 360deg); position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+            <div id="wheel-display" style="width:220px; height:220px; border-radius:50%; background:conic-gradient(#b8c6c8 0deg 45deg, #d8d3b8 45deg 90deg, #bcd3c2 90deg 135deg, #c4bcd4 135deg 180deg, #e0c4bc 180deg 225deg, #c8c8d8 225deg 270deg, #d4c4b4 270deg 315deg, #b8d0d0 315deg 360deg); position:relative; box-shadow:0 4px 20px rgba(0,0,0,0.15);">
                 <div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); font-size:24px;">▼</div>
             </div>
             <div id="wheel-result" style="font-size:15px; font-weight:600; color:var(--ios-blue); text-align:center; min-height:22px;"></div>
-            <button class="btn-action" onclick="spinWheel()">转！</button>
+            <div style="display:flex; gap:8px;">
+                <button class="btn-action" onclick="spinWheel()">转！</button>
+                <button class="btn-action secondary" onclick="sendWheelResultToChat()">💬 转发到聊天</button>
+            </div>
         </div>
     </div>
 </div>
@@ -1094,11 +1191,16 @@
     <div class="sub-page-header">
         <button class="header-btn" onclick="closeSubModal('page-mystic')">‹ 返回</button>
         <span style="font-size:15px; font-weight:600;">🔮 玄学大师</span>
-        <span style="width:40px;"></span>
+        <button class="btn-action small" onclick="openMysticArchives()">💾 存档</button>
     </div>
     <div class="sub-page-body">
         <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
-            <label style="font-size:11px; color:var(--text-sub);">你想问什么？</label>
+            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleMysticBaseInfo()">
+                <label style="font-size:11px; color:var(--text-sub);">📋 基础信息（解读时自动带入）<span style="font-size:10px;"> 点击展开/收起</span></label>
+                <button class="btn-action secondary small" onclick="event.stopPropagation(); openMysticBaseInfo()">✏️ 编辑</button>
+            </div>
+            <div id="mystic-base-info-preview" style="font-size:11px; color:var(--text-sub); line-height:1.5; background:var(--bg-page); border-radius:8px; padding:8px; display:none;">未填写（如：生日、星座、MBTI 等）</div>
+            <label style="font-size:11px; color:var(--text-sub); margin-top:4px;">你想问什么？</label>
             <select class="dialog-input" id="mystic-type">
                 <option value="tarot">塔罗抽牌</option>
                 <option value="constellation">星座运势</option>
@@ -1110,11 +1212,21 @@
         </div>
         <div class="action-card" style="padding:14px; display:none;" id="mystic-result-card">
             <div style="font-size:13px; line-height:1.7; white-space:pre-wrap;" id="mystic-result"></div>
+            <div style="display:flex; gap:6px; margin-top:8px;">
+                <button class="btn-action secondary small" onclick="saveMysticArchive()">💾 保存这次解读</button>
+            </div>
+        </div>
+        <!-- 继续交流 -->
+        <div class="action-card" style="padding:14px; display:none;" id="mystic-chat-card">
+            <div style="display:flex; gap:6px;">
+                <input type="text" class="dialog-input" id="mystic-follow-input" placeholder="追问大师..." style="flex:1;" onkeydown="if(event.key==='Enter') mysticFollowUp()">
+                <button class="btn-action secondary" onclick="mysticFollowUp()">追问</button>
+            </div>
+            <div id="mystic-chat-log" style="font-size:12.5px; line-height:1.6; margin-top:8px; display:flex; flex-direction:column; gap:6px;"></div>
         </div>
     </div>
 </div>
 
-<!-- 4. 文档长篇分析 -->
 <div class="sub-page" id="page-doc-analysis">
     <div class="sub-page-header">
         <button class="header-btn" onclick="closeSubModal('page-doc-analysis')">‹ 返回</button>
@@ -1123,8 +1235,8 @@
     </div>
     <div class="sub-page-body">
         <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
-            <label style="font-size:11px; color:var(--text-sub);">上传文档 (txt / md / csv / json)</label>
-            <input type="file" id="doc-analysis-file" style="display:none;" accept=".txt,.md,.csv,.json" onchange="handleDocAnalysisFile(this)">
+            <label style="font-size:11px; color:var(--text-sub);">上传文档 (txt / md / csv / json / word / pdf)</label>
+            <input type="file" id="doc-analysis-file" style="display:none;" accept=".txt,.md,.csv,.json,.docx,.doc,.pdf" onchange="handleDocAnalysisFile(this)">
             <button class="btn-action secondary small" onclick="document.getElementById('doc-analysis-file').click()">📂 选择文件</button>
             <div id="doc-analysis-filename" style="font-size:11px; color:var(--text-sub);">未选择文件</div>
             <label style="font-size:11px; color:var(--text-sub); margin-top:6px;">你想让 TA 帮你做什么？</label>
@@ -1134,6 +1246,14 @@
         <div class="action-card" style="padding:14px; display:none;" id="doc-analysis-result-card">
             <div style="font-size:13px; line-height:1.7; white-space:pre-wrap;" id="doc-analysis-result"></div>
         </div>
+            <div class="action-card" style="padding:14px; display:none;" id="doc-chat-card">
+                <div style="display:flex; gap:6px;">
+                    <input type="text" class="dialog-input" id="doc-follow-input" placeholder="继续追问文档内容..." style="flex:1;" onkeydown="if(event.key==='Enter') docFollowUp()">
+                    <button class="btn-action secondary" onclick="docFollowUp()">追问</button>
+                </div>
+                <div id="doc-chat-log" style="font-size:12.5px; line-height:1.6; margin-top:8px; display:flex; flex-direction:column; gap:6px;"></div>
+            </div>
+
     </div>
 </div>
 
@@ -1276,36 +1396,169 @@
             <span style="font-size:15px; font-weight:600;">外观设置</span>
             <span style="width:40px;"></span>
         </div>
-        <div class="sub-page-body">
-            <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:10px;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:13px; font-weight:600;">夜间深色模式</span>
-                    <input type="checkbox" id="cfg-dark-toggle" onchange="toggleDarkMode(this.checked)">
-                </div>
-                <div style="border-top:0.5px solid var(--border-light); padding-top:10px;">
-                    <span style="font-size:13px; font-weight:600;">聊天背景壁纸</span>
-                    <div style="display:flex; gap:8px; margin-top:6px;">
-                        <input type="file" id="bg-file-input" style="display:none;" accept="image/*" onchange="handleBgUpload(this)">
-                        <button class="btn-action secondary small" onclick="document.getElementById('bg-file-input').click()">📷 上传壁纸</button>
-                        <button class="btn-action danger small" onclick="clearBg()">清除壁纸</button>
-                    </div>
-                </div>
-                <div style="border-top:0.5px solid var(--border-light); padding-top:10px; margin-top:8px;">
-                    <span style="font-size:13px; font-weight:600;">锁屏背景壁纸</span>
-                    <div style="display:flex; gap:8px; margin-top:6px;">
-                        <input type="file" id="lock-bg-file-input" style="display:none;" accept="image/*" onchange="handleLockBgUpload(this)">
-                        <button class="btn-action secondary small" onclick="document.getElementById('lock-bg-file-input').click()">📷 上传锁屏壁纸</button>
-                        <button class="btn-action danger small" onclick="clearLockBg()">清除锁屏壁纸</button>
-                    </div>
+        <div class="sub-page-body" style="padding-bottom:20px;">
+
+            <div class="action-card" style="padding:12px 14px; display:flex; flex-direction:row; justify-content:space-between; align-items:center;">
+                <span style="font-size:13px; font-weight:600;">夜间深色模式</span>
+                <input type="checkbox" id="cfg-dark-toggle" onchange="toggleDarkMode(this.checked)">
+            </div>
+
+            <div class="action-card" style="padding:12px 14px; margin-top:10px;">
+                <span style="font-size:13px; font-weight:600;">聊天背景壁纸</span>
+                <div style="display:flex; gap:8px; margin-top:6px;">
+                    <input type="file" id="bg-file-input" style="display:none;" accept="image/*" onchange="handleBgUpload(this)">
+                    <button class="btn-action secondary small" onclick="document.getElementById('bg-file-input').click()">📷 上传壁纸</button>
+                    <button class="btn-action danger small" onclick="clearBg()">清除壁纸</button>
                 </div>
             </div>
+
+            <div class="action-card" style="padding:12px 14px; margin-top:10px;">
+                <span style="font-size:13px; font-weight:600;">锁屏背景壁纸</span>
+                <div style="display:flex; gap:8px; margin-top:6px;">
+                    <input type="file" id="lock-bg-file-input" style="display:none;" accept="image/*" onchange="handleLockBgUpload(this)">
+                    <button class="btn-action secondary small" onclick="document.getElementById('lock-bg-file-input').click()">📷 上传锁屏壁纸</button>
+                    <button class="btn-action danger small" onclick="clearLockBg()">清除锁屏壁纸</button>
+                </div>
+            </div>
+
+            <div class="action-card" style="padding:12px 14px; margin-top:10px;">
+                <div style="font-size:13px; font-weight:600; margin-bottom:6px;">主题与背景</div>
+                <div class="appearance-row"><span class="appearance-label">主题色</span>
+                    <input type="color" class="appearance-color" id="cfg-theme-color" value="#007aff" oninput="setAppearance('themeColor', this.value)">
+                </div>
+                <div class="appearance-row"><span class="appearance-label">页面背景</span>
+                    <input type="color" class="appearance-color" id="cfg-page-bg" value="#f2f5f8" oninput="setAppearance('pageBgColor', this.value)">
+                </div>
+                <div class="appearance-row"><span class="appearance-label">聊天背景</span>
+                    <input type="color" class="appearance-color" id="cfg-chat-bg" value="#14161c" oninput="setAppearance('chatBgColor', this.value)">
+                </div>
+            </div>
+
+            <div class="action-card" style="padding:12px 14px; margin-top:10px;">
+                <div style="font-size:13px; font-weight:600; margin-bottom:6px;">字体</div>
+                <div class="appearance-row"><span class="appearance-label">我方字体色</span>
+                    <input type="color" class="appearance-color" id="cfg-user-text-color" value="#ffffff" oninput="setAppearance('userTextColor', this.value)">
+                </div>
+                <div class="appearance-row"><span class="appearance-label">对方字体色</span>
+                    <input type="color" class="appearance-color" id="cfg-char-text-color" value="#1a1a1a" oninput="setAppearance('charTextColor', this.value)">
+                </div>
+                <div class="appearance-row"><span class="appearance-label">字体样式</span>
+                    <select class="appearance-select" id="cfg-font-family" onchange="setAppearance('fontFamily', this.value)">
+                        <option value="">默认（跟随系统）</option>
+                        <option value="'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif">苹方 / 雅黑</option>
+                        <option value="'Noto Serif SC',serif">宋体衬线</option>
+                        <option value="'Comic Sans MS','Segoe Print',sans-serif">手写圆体</option>
+                        <option value="'Courier New',monospace">等宽代码风</option>
+                        <option value="'Georgia','Times New Roman',serif">西文衬线</option>
+                    </select>
+                </div>
+                <div class="appearance-row"><span class="appearance-label">字体链接</span>
+                    <input type="text" class="dialog-input" id="cfg-font-link" placeholder="粘贴字体 CSS 链接，可导入自定义字体" onchange="setAppearance('fontLink', this.value)">
+                </div>
+                <div class="appearance-row"><span class="appearance-label">全局字号</span>
+                    <input type="range" class="appearance-range" min="11" max="20" step="0.5" id="cfg-font-size" value="14" oninput="setAppearance('fontSize', this.value)">
+                    <span class="appearance-value" id="val-font-size">14</span>
+                </div>
+                <div class="appearance-row"><span class="appearance-label">气泡字号</span>
+                    <input type="range" class="appearance-range" min="11" max="22" step="0.5" id="cfg-bubble-font" value="14" oninput="setAppearance('bubbleFontSize', this.value)">
+                    <span class="appearance-value" id="val-bubble-font">14</span>
+                </div>
+                <div class="appearance-row"><span class="appearance-label">时间字号</span>
+                    <input type="range" class="appearance-range" min="8" max="14" step="0.5" id="cfg-time-font" value="10" oninput="setAppearance('timeFontSize', this.value)">
+                    <span class="appearance-value" id="val-time-font">10</span>
+                </div>
+                <div class="appearance-row"><span class="appearance-label">标题字号</span>
+                    <input type="range" class="appearance-range" min="11" max="20" step="0.5" id="cfg-header-font" value="15" oninput="setAppearance('headerFontSize', this.value)">
+                    <span class="appearance-value" id="val-header-font">15</span>
+                </div>
+                <div class="appearance-row"><span class="appearance-label">行间距</span>
+                    <input type="range" class="appearance-range" min="1" max="2" step="0.05" id="cfg-line-height" value="1.45" oninput="setAppearance('lineHeight', this.value)">
+                    <span class="appearance-value" id="val-line-height">1.45</span>
+                </div>
+                <div class="appearance-row"><span class="appearance-label">字间距</span>
+                    <input type="range" class="appearance-range" min="0" max="6" step="0.5" id="cfg-letter-spacing" value="0" oninput="setAppearance('letterSpacing', this.value)">
+                    <span class="appearance-value" id="val-letter-spacing">0</span>
+                </div>
+            </div>
+
+            <div class="action-card" style="padding:12px 14px; margin-top:10px;">
+                <div style="font-size:13px; font-weight:600; margin-bottom:6px;">气泡</div>
+                <div class="appearance-row"><span class="appearance-label">我方气泡色</span>
+                    <input type="color" class="appearance-color" id="cfg-user-bubble" value="#007aff" oninput="setAppearance('userBubbleBg', this.value)">
+                </div>
+                <div class="appearance-row"><span class="appearance-label">对方气泡色</span>
+                    <input type="color" class="appearance-color" id="cfg-char-bubble" value="#f1f3f5" oninput="setAppearance('charBubbleBg', this.value)">
+                </div>
+                <div class="appearance-row"><span class="appearance-label">气泡圆角</span>
+                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-bubble-radius" value="18" oninput="setAppearance('bubbleRadius', this.value)">
+                    <span class="appearance-value" id="val-bubble-radius">18</span>
+                </div>
+                <div class="appearance-row"><span class="appearance-label">气泡最大宽</span>
+                    <input type="range" class="appearance-range" min="40" max="92" step="1" id="cfg-bubble-max" value="76" oninput="setAppearance('bubbleMaxWidth', this.value)">
+                    <span class="appearance-value" id="val-bubble-max">76</span>
+                </div>
+                <div class="appearance-row"><span class="appearance-label">消息间距</span>
+                    <input type="range" class="appearance-range" min="0" max="18" step="1" id="cfg-msg-gap" value="6" oninput="setAppearance('msgGap', this.value)">
+                    <span class="appearance-value" id="val-msg-gap">6</span>
+                </div>
+                <div class="appearance-row"><span class="appearance-label">气泡透明度</span>
+                    <input type="range" class="appearance-range" min="20" max="100" step="1" id="cfg-bubble-opacity" value="100" oninput="setAppearance('bubbleOpacity', this.value)">
+                    <span class="appearance-value" id="val-bubble-opacity">100</span>
+                </div>
+                <div style="font-size:11px; color:var(--text-sub); margin-top:8px;">我方气泡四角圆角（左上/右上/左下/右下）</div>
+                <div class="appearance-row"><span class="appearance-label">我方 4角</span>
+                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-ur-tl" value="18" oninput="setAppearanceRadius('user','tl',this.value)">
+                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-ur-tr" value="18" oninput="setAppearanceRadius('user','tr',this.value)">
+                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-ur-bl" value="18" oninput="setAppearanceRadius('user','bl',this.value)">
+                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-ur-br" value="6" oninput="setAppearanceRadius('user','br',this.value)">
+                </div>
+                <div style="font-size:11px; color:var(--text-sub); margin-top:4px;">对方气泡四角圆角（左上/右上/左下/右下）</div>
+                <div class="appearance-row"><span class="appearance-label">对方 4角</span>
+                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-cr-tl" value="18" oninput="setAppearanceRadius('char','tl',this.value)">
+                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-cr-tr" value="18" oninput="setAppearanceRadius('char','tr',this.value)">
+                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-cr-bl" value="6" oninput="setAppearanceRadius('char','bl',this.value)">
+                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-cr-br" value="18" oninput="setAppearanceRadius('char','br',this.value)">
+                </div>
+            </div>
+
+            <div class="action-card" style="padding:12px 14px; margin-top:10px;">
+                <div style="font-size:13px; font-weight:600; margin-bottom:6px;">磨玻璃特效</div>
+                <div class="appearance-row"><span class="appearance-label">启用磨玻璃</span>
+                    <input type="checkbox" id="cfg-glass-blur" onchange="setAppearance('glassBlur', this.checked ? 12 : 0)">
+                </div>
+                <div class="appearance-row"><span class="appearance-label">模糊强度</span>
+                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-glass-strength" value="0" oninput="setAppearance('glassStrength', this.value)" style="flex:1;">
+                    <span class="appearance-value" id="val-glass-strength">0</span>
+                </div>
+            </div>
+
+            <div class="action-card" style="padding:12px 14px; margin-top:14px;">
+                <button class="btn-action secondary" style="width:100%;" onclick="resetAppearance()">恢复默认外观</button>
+            </div>
+
+            <div class="action-card" style="padding:12px 14px; margin-top:14px;">
+                <div style="font-size:12px; font-weight:600; margin-bottom:8px;">👁 实时预览（改完看效果）</div>
+                <div id="appearance-preview" style="border-radius:12px; overflow:hidden; background:var(--chat-bg-color,#14161c); padding:12px; display:flex; flex-direction:column; gap:6px; border:1px solid var(--border-light);">
+                    <div style="display:flex; justify-content:space-between; font-size:11px;">
+                        <span id="preview-title" style="color:var(--text-main);">预览标题</span>
+                        <span id="preview-status" style="color:var(--text-sub);">在线 · 心情不错</span>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end;">
+                        <div id="preview-user-bubble" class="pv-bubble pv-user">我发的消息气泡</div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-start;">
+                        <div id="preview-char-bubble" class="pv-bubble pv-char">TA 的消息气泡</div>
+                    </div>
+                    <div class="pv-time" style="text-align:center; color:var(--text-sub);">09:30 · 消息时间</div>
+                </div>
+            </div>
+
         </div>
     </div>
-
-    <!-- 宋凛主动视频来电呼入界面 -->
+    <!-- 联系人主动视频来电呼入界面 -->
     <div class="incoming-call-overlay" id="incoming-call-modal">
         <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
-            <div style="font-size:20px; font-weight:600; color:#fff;" id="incoming-caller-name">宋凛</div>
+            <div style="font-size:20px; font-weight:600; color:#fff;" id="incoming-caller-name">AI 伴侣</div>
             <div style="font-size:12px; color:rgba(255,255,255,0.6);">邀请你进行视频通话...</div>
         </div>
         <div class="persona-avatar-box" style="width:96px; height:96px; font-size:42px; border:2px solid rgba(255,255,255,0.25);" id="incoming-caller-avatar">🐺</div>
@@ -1348,7 +1601,7 @@
     </div>
 </div>
 
-<script src="app.js"></script>
+<script src="app.js?v=20"></script>
 <script>
 // 物理直连：手账存盘保存绝对通道 (绝不被外部中断)
 function saveJournalEntry() {
