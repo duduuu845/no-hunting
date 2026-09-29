@@ -547,8 +547,7 @@ async function renderChatHistory() {
     if (!chatView) return;
     chatView.innerHTML = '';
 
-    const needFetch = [];
-
+    // 关键改动：严格按数组顺序逐条渲染，图片用 await 等回来再插
     for (const item of appData.chatHistory) {
         if (item.recalled) {
             renderRecalledItem(chatView, item);
@@ -559,28 +558,38 @@ async function renderChatHistory() {
             case 'sticker':
                 renderStickerItem(chatView, item);
                 break;
+
             case 'realImg':
             case 'aiImg': {
-                if (item.mediaUrl && item.mediaUrl.startsWith('data:')) {
-                    if (item.type === 'realImg') renderRealImgItem(chatView, item);
-                    else renderAiImgItem(chatView, item);
-                } else if (item.imgKey) {
-                    needFetch.push({ item, chatView });
+                let url = item.mediaUrl || '';
+                // 如果是 IndexedDB 存的，等回来再渲染
+                if (!url && item.imgKey) {
+                    try {
+                        url = await ImageDB.get(item.imgKey) || '';
+                    } catch (e) {
+                        console.warn('读取图片失败:', e);
+                    }
+                }
+                if (item.type === 'realImg') {
+                    renderRealImgItem(chatView, { ...item, mediaUrl: url });
                 } else {
-                    if (item.type === 'realImg') renderRealImgItem(chatView, item);
-                    else renderAiImgItem(chatView, item);
+                    renderAiImgItem(chatView, { ...item, mediaUrl: url });
                 }
                 break;
             }
+
             case 'fakeImg':
                 renderFakeImgItem(chatView, item);
                 break;
+
             case 'voice':
                 renderVoiceItem(chatView, item);
                 break;
+
             case 'file':
                 renderFileItem(chatView, item);
                 break;
+
             default:
                 if (item.isSticker && item.text && item.text.startsWith('[表情]')) {
                     const url = item.text.replace('[表情]', '');
@@ -588,24 +597,6 @@ async function renderChatHistory() {
                 } else {
                     appendBubbleToUI(item.role, item.text, item.time, item.quote, item.id);
                 }
-        }
-    }
-
-    for (const { item, chatView } of needFetch) {
-        try {
-            const dataUrl = await ImageDB.get(item.imgKey);
-            if (dataUrl) {
-                if (item.type === 'realImg') {
-                    renderRealImgItem(chatView, { ...item, mediaUrl: dataUrl });
-                } else {
-                    renderAiImgItem(chatView, { ...item, mediaUrl: dataUrl });
-                }
-            } else {
-                if (item.type === 'realImg') renderRealImgItem(chatView, item);
-                else renderAiImgItem(chatView, item);
-            }
-        } catch (e) {
-            console.warn('读取图片失败:', e);
         }
     }
 
