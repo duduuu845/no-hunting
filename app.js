@@ -1243,8 +1243,7 @@ function sendSingleMessage() {
     input.value = '';
     cancelQuote();
     touchLastMsgTs();
-    // 大众化体验：发送后自动让 AI 回复；API 未配置时由 triggerAiReply 内部静默处理
-    setTimeout(() => { try { triggerAiReply(); } catch (e) {} }, 350);
+    // 发送键只负责发送消息；AI 回复由输入栏右侧「↑」生成键手动触发
 }
 
 // 群组中"我"的消息（微信式：右侧带头像）
@@ -1647,7 +1646,7 @@ async function triggerAiReply() {
     if (!key || !model) {
         setTimeout(() => {
             statusEl.innerText = originalStatus;
-            openAlert('请先在【设置】->【API设置】中填写 Key 与模型！');
+            showAiErrorBubble('请先在【设置】->【API设置】中填写 Key 与模型！');
         }, 500);
         return;
     }
@@ -2116,10 +2115,36 @@ async function triggerAiReply() {
         }
 
     } catch (e) {
-        openAlert(`回复生成失败: ${e.message}`);
+        showAiErrorBubble(e);
     } finally {
         statusEl.innerText = originalStatus;
     }
+}
+
+// 把 AI 回复失败原因作为报错气泡显示在聊天界面（不写入对话历史）
+function showAiErrorBubble(err) {
+    const chatView = document.getElementById('view-chat');
+    if (!chatView) return;
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const em = String((err && err.message) || err || '');
+    let msg = '';
+    if (/failed to fetch|network|ERR_CONNECTION|ERR_NAME/i.test(em)) {
+        msg = '⚠️ 网络连接异常，AI 回复生成失败。请检查网络后重试。';
+    } else if (/HTTP \d{3}/.test(em)) {
+        const code = em.match(/HTTP \d{3}/)[0];
+        msg = `⚠️ AI 接口请求失败（${code}）。请检查【设置】→【API 设置】中的接口地址、Key 与模型是否正确。`;
+    } else if (/请先在/.test(em)) {
+        msg = '⚠️ 请先在【设置】→【API 设置】中填写 Key 与模型，再点「↑」生成回复。';
+    } else if (/MCP/.test(em) || /mcp/.test(em)) {
+        msg = '⚠️ MCP 工具连接失败：' + em + '。可在【设置】→【MCP 服务】中检查或删除无效的服务。';
+    } else {
+        msg = '⚠️ AI 回复生成失败：' + (em || '未知错误');
+    }
+    appendBubbleToUI('char', msg, timeStr, null, 'msg_err_' + Date.now());
+    const rows = chatView.querySelectorAll('.msg-row');
+    if (rows.length) rows[rows.length - 1].classList.add('error-row');
+    chatView.scrollTop = chatView.scrollHeight;
 }
 
 // ==================== 回溯与多选编辑 ====================

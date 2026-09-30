@@ -2912,16 +2912,16 @@ select.appearance-select {
 }
 .journal-avatar { width: 22px; height: 22px; border-radius: 50%; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; background: #f1f3f5; }
 
-/* 输入栏：浅白米色磨玻璃 */
+/* 输入栏：与底部导航栏同色（var(--panel-bg) 白色磨玻璃，夜间模式自动跟随） */
 #view-chat-container .chat-input-bar {
-    background: rgba(248, 244, 238, 0.66);
+    background: var(--panel-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-top: 0.5px solid rgba(255,255,255,0.45);
+    border-top: 0.5px solid var(--border-light);
 }
 #view-chat-container .input-pill {
-    background: rgba(255,255,255,0.68);
-    border: 0.5px solid rgba(0,0,0,0.07);
+    background: rgba(255,255,255,0.82);
+    border: 0.5px solid rgba(0,0,0,0.06);
 }
 #view-chat-container .ios-text-input { color: #1a1a1a; }
 #view-chat-container .btn-icon-circle { color: #007aff; }
@@ -2960,7 +2960,10 @@ select.appearance-select {
     letter-spacing: -1px; border: none; outline: none; cursor: text;
     background: linear-gradient(180deg, #FFFFFF 0%, #CFE2FB 100%);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-    overflow: hidden; white-space: nowrap; padding: 4px 8px;
+    overflow: visible; white-space: nowrap; padding: 4px 8px;
+    /* 数字瘦长比例（拉长数字：宽度压缩 + 高度拉伸，接近 1:2 的竖长字形） */
+    transform: scale(0.72, 1.25);
+    transform-origin: left top;
 }
 .lockscreen-overlay .ls-big-time:focus { -webkit-text-fill-color: #fff; background: rgba(255,255,255,0.12); border-radius: 10px; }
 .lockscreen-overlay .ls-date-block {
@@ -3039,4 +3042,12 @@ select.appearance-select {
     border-right: 5px solid transparent;
     border-bottom: 8px solid #e63946;
     display: inline-block;
+}
+
+/* AI 回复失败报错气泡 */
+.msg-row.error-row .msg-bubble::before {
+    background: rgba(255, 59, 48, 0.26) !important;
+}
+.msg-row.error-row .msg-bubble {
+    color: var(--char-text-color, #1a1a1a) !important;
 }
