@@ -481,17 +481,17 @@ body.dark-mode .memo-block { background: rgba(255,255,255,0.04); }
     -webkit-backdrop-filter: blur(25px);
     display: flex;
     justify-content: space-around;
-    padding: 8px 0 calc(14px + env(safe-area-inset-bottom, 0px)); /* 安全区填充与底栏一体化 */
+    padding: 16px 0 calc(18px + env(safe-area-inset-bottom, 0px)); /* 安全区填充与底栏一体化 */
     border-top: 0.5px solid var(--border-light);
     z-index: 30;
     flex-shrink: 0;
     width: 100%;
 }
 .nav-item {
-    display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; color: var(--text-sub); cursor: pointer; border: none; background: none; white-space: nowrap;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; color: var(--text-sub); cursor: pointer; border: none; background: none; white-space: nowrap;
 }
 .nav-item.active { color: var(--ios-blue); font-weight: 600; }
-.nav-icon { font-size: 18px; }
+.nav-icon { font-size: 21px; }
 
 /* 独立全屏子页面 */
 .sub-page {
@@ -631,7 +631,7 @@ body.dark-mode .memo-block { background: rgba(255,255,255,0.04); }
     background: var(--panel-bg); border-radius: 14px; padding: 15px; border: 0.5px solid var(--border-light);
     display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s; white-space: nowrap;
 }
-.menu-item-left { display: flex; align-items: center; gap: 12px; min-width: 0; overflow: hidden; }
+.menu-item-left { display: flex; align-items: center; gap: 18px; min-width: 0; overflow: hidden; }
 .menu-icon { font-size: 20px; flex-shrink: 0; }
 .menu-title { font-size: 13.5px; font-weight: 600; color: var(--text-main); white-space: nowrap; }
 .menu-sub { font-size: 11px; color: var(--text-sub); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -936,8 +936,9 @@ body.dark-mode .char-recall-detail {
 /* 顶部年月切换器 */
 .cal-nav-bar {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
+    gap: 8px;
     padding: 4px 6px 8px;
 }
 .cal-picker-group {
@@ -3064,4 +3065,16 @@ select.appearance-select {
 }
 .msg-row.error-row .msg-bubble {
     color: var(--char-text-color, #1a1a1a) !important;
+}
+.cal-today-btn {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-size: 18px;
+    color: var(--theme-color);
+    margin-left: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }

@@ -17,6 +17,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome 图标库：支持 fa-solid / fa-regular / fa-brands 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
     <!-- 引入独立皮肤文件 -->
     <link rel="stylesheet" href="style.css?v=26">
@@ -99,13 +101,13 @@
     <div class="chat-header" id="chat-header">
         <button class="header-btn" onclick="goBackToContacts()" title="返回联系人">‹</button>
         <div class="header-title-box" onclick="toggleHeartVoice()">
-            <div class="header-title-text" id="header-contact-name">AI 伴侣</div>
-            <div class="header-status-text" id="header-contact-status">在线 · 正在想你 ▾</div>
+            <div class="header-title-text" id="header-contact-name">新朋友</div>
+            <div class="header-status-text" id="header-contact-status"></div>
         </div>
         <div style="display:flex; gap:6px;">
-            <button class="header-btn" onclick="toggleLeftDrawer()" title="随手记">📝</button>
-            <button class="header-btn" onclick="openSearchModal()" title="搜索">🔍</button>
-            <button class="header-btn" onclick="toggleTopMenu()" title="菜单">⋯</button>
+            <button class="header-btn" onclick="toggleLeftDrawer()" title="随手记"><i class="fa-brands fa-padlet"></i></button>
+            <button class="header-btn" onclick="openSearchModal()" title="搜索"><i class="fa-solid fa-magnifying-glass"></i></button>
+            <button class="header-btn" onclick="toggleTopMenu()" title="菜单"><i class="fa-solid fa-bars-staggered"></i></button>
         </div>
     </div>
 
@@ -115,7 +117,7 @@
         <div style="display:flex; align-items:center; gap:8px;">
             <button class="header-btn" id="general-add-btn" onclick="openAddGroupDialog()" title="添加群组">＋</button>
             <div class="pixel-day-badge" id="anniversary-d-day" style="display:none;">D1</div>
-            <button class="header-btn" onclick="toggleLeftDrawer()" title="随手记" id="general-memo-btn">📝</button>
+            <button class="header-btn" onclick="toggleLeftDrawer()" title="随手记" id="general-memo-btn"><i class="fa-brands fa-padlet"></i></button>
         </div>
     </div>
 
@@ -127,26 +129,26 @@
 
     <!-- 右上角功能键浮窗 -->
     <div class="top-func-menu" id="top-func-menu">
-        <div class="pop-menu-item" onclick="triggerRollback()">🔄 回溯对话</div>
-        <div class="pop-menu-item" onclick="enterBatchEditMode()">✏️ 编辑消息</div>
-        <div class="pop-menu-item" onclick="openContactDetailPage()">👤 查看联系人</div>
+        <div class="pop-menu-item" onclick="triggerRollback()"><i class="fa-solid fa-rotate"></i> 回溯对话</div>
+        <div class="pop-menu-item" onclick="enterBatchEditMode()"><i class="fa-solid fa-pen-fancy"></i> 编辑消息</div>
+        <div class="pop-menu-item" onclick="openContactDetailPage()"><i class="fa-solid fa-user-gear"></i> 查看联系人</div>
     </div>
 
     <!-- 左侧随手记抽屉 (上下统一 13px，去引号去多余字) -->
     <div class="left-drawer" id="left-drawer">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="font-size:14px;">📌 随手记</h3>
+            <h3 style="font-size:14px;"><i class="fa-solid fa-tags"></i> 随手记</h3>
             <div style="display:flex; gap:6px; align-items:center;">
-                <button class="btn-action secondary small" style="font-size:10.5px; padding:3px 8px;" onclick="openMemoSettings()">⚙️ 设置</button>
+                <button class="btn-action secondary small" style="font-size:14px; padding:5px 8px;" onclick="openMemoSettings()"><i class="fa-solid fa-person-circle-plus"></i></button>
                 <button class="header-btn" onclick="toggleLeftDrawer()">✕</button>
             </div>
         </div>
         <!-- 我的便利贴（图钉） -->
         <div class="pin-note">
             <div class="pin-note-head">
-                <span class="pin-avatar user-pin-avatar" id="memo-user-avatar">🦊</span>
+                <span class="pin-avatar user-pin-avatar" id="memo-user-avatar"></span>
                 <span style="font-size:11px; color:var(--text-sub);">我的碎碎念</span>
-                <span class="pin-thumb">📌</span>
+                <span class="pin-thumb"><i class="fa-solid fa-caret-left"></i></span>
             </div>
             <textarea class="drawer-textarea" id="memo-input" placeholder="随时记下今天的碎碎念、想吃的、想吐槽的..." oninput="saveMemo()"></textarea>
         </div>
@@ -167,13 +169,13 @@
 
             <!-- 底部“+”号功能浮窗 (精简文案) -->
             <div class="bottom-pop-menu" id="bottom-pop-menu">
-                <div class="pop-menu-item" onclick="openStickerPopup()">🖼️ 表情包</div>
-                <div class="pop-menu-item" onclick="document.getElementById('real-img-upload').click()">📷 上传照片</div>
+                <div class="pop-menu-item" onclick="openStickerPopup()"><i class="fa-regular fa-face-grin-squint"></i> 表情包</div>
+                <div class="pop-menu-item" onclick="document.getElementById('real-img-upload').click()"><i class="fa-solid fa-camera-retro"></i> 上传照片</div>
                 <input type="file" id="real-img-upload" style="display:none;" accept="image/*" onchange="handleRealImageSend(this)">
-                <div class="pop-menu-item" onclick="openAppDialog('fake-img')">🖼️ 图片</div>
-                <div class="pop-menu-item" onclick="openAppDialog('voice')">🎙️ 发送语音条</div>
-                <div class="pop-menu-item" onclick="startVideoCall(false)">📹 视频通话</div>
-                <div class="pop-menu-item" onclick="document.getElementById('doc-file-upload').click()">📁 上传文件</div>
+                <div class="pop-menu-item" onclick="openAppDialog('fake-img')"><i class="fa-regular fa-image"></i> 图片</div>
+                <div class="pop-menu-item" onclick="openAppDialog('voice')"><i class="fa-solid fa-microphone-lines"></i> 发送语音条</div>
+                <div class="pop-menu-item" onclick="startVideoCall(false)"><i class="fa-solid fa-video"></i> 视频通话</div>
+                <div class="pop-menu-item" onclick="document.getElementById('doc-file-upload').click()"><i class="fa-regular fa-file-lines"></i> 上传文件</div>
                 <input type="file" id="doc-file-upload" style="display:none;" accept=".txt,.json,.md,.csv,.pdf" onchange="handleDocFileUpload(this)">
             </div>
 
@@ -199,9 +201,9 @@
             <!-- 批量编辑操作栏 (悬浮在输入栏基线位置) -->
             <div class="batch-action-bar" id="batch-action-bar">
                 <span style="font-size:12px; font-weight:600;" id="batch-selected-count">已选 0 条</span>
-                <div style="display:flex; gap:8px;">
-                    <button class="btn-action small secondary" onclick="batchFavorite()">⭐ 收藏</button>
-                    <button class="btn-action small danger" onclick="batchDelete()">🗑️ 删除</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-action small secondary" onclick="batchFavorite()"><i class="fa-solid fa-heart-circle-check"></i> 收藏消息</button>
+                    <button class="btn-action small danger" onclick="batchDelete()"><i class="fa-regular fa-trash-can"></i> 删除消息</button>
                     <button class="btn-action small" onclick="exitBatchEditMode()">完成</button>
                 </div>
             </div>
@@ -226,11 +228,11 @@
                 <div class="action-card" style="padding:10px; margin-bottom:10px;">
                     <textarea class="dialog-input" id="fanwai-prompt-input" style="height:76px; resize:none;" placeholder="输入番外提示词 (输入 $ 激活万字高级模式)..."></textarea>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                        <div style="display:flex; gap:6px;">
-                            <button class="btn-action secondary small" onclick="openFanwaiWbBindingModal()">🔗 世界书</button>
-                            <button class="btn-action secondary small" onclick="openNovelArchivePage()">📥 番外集</button>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn-action secondary small" onclick="openFanwaiWbBindingModal()"><i class="fa-brands fa-hubspot"></i> 世界书</button>
+                            <button class="btn-action secondary small" onclick="openNovelArchivePage()"><i class="fa-regular fa-envelope-open"></i> 番外集</button>
                         </div>
-                        <button class="btn-action small" id="btn-generate-fanwai" onclick="startGenerateFanwai()">🔄 生成</button>
+                        <button class="btn-action small" id="btn-generate-fanwai" onclick="startGenerateFanwai()"><i class="fa-solid fa-arrow-right-from-bracket"></i> 生成</button>
                     </div>
                 </div>
 
@@ -242,13 +244,13 @@
             <div id="theater-yishijie-view" style="display:none; flex:1; flex-direction:column; padding:10px 14px; overflow-y:auto;">
                 <div class="action-card" style="padding:12px; margin-bottom:10px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span style="font-size:13px; font-weight:600;">📖 我的故事存档</span>
+                        <span style="font-size:15px; font-weight:600;"><i class="fa-solid fa-file-half-dashed"></i> 故事存档</span>
                         <button class="btn-action small" onclick="openWorldConfig()">＋ 新建故事</button>
                     </div>
-                    <div style="display:flex; gap:6px;">
-                        <button class="btn-action secondary small" onclick="openWorldSettingManager()">🌍 世界观库</button>
-                        <button class="btn-action secondary small" onclick="openWorldPersonaManager()">🎭 皮套库</button>
-                        <button class="btn-action secondary small" onclick="openWorldRandomWizard()">🎲 一键生成</button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-action secondary small" onclick="openWorldSettingManager()"><i class="fa-solid fa-earth-asia"></i> 世界观库</button>
+                        <button class="btn-action secondary small" onclick="openWorldPersonaManager()"><i class="fa-solid fa-masks-theater"></i> 皮套库</button>
+                        <button class="btn-action secondary small" onclick="openWorldRandomWizard()"><i class="fa-solid fa-wand-magic-sparkles"></i> 一键生成</button>
                     </div>
                 </div>
                 <div id="world-archive-list" style="display:flex; flex-direction:column; gap:10px;"></div>
@@ -269,7 +271,7 @@
 
                     <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:12.5px; font-weight:600;">🌍 世界观</span>
+                            <span style="font-size:12.5px; font-weight:600;">世界观</span>
                             <button class="btn-action secondary small" onclick="openWorldSettingManager()">管理</button>
                         </div>
                         <select class="dialog-input" id="wc-world-select"></select>
@@ -277,7 +279,7 @@
 
                     <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:12.5px; font-weight:600;">🎭 CHAR 皮套</span>
+                            <span style="font-size:12.5px; font-weight:600;">CHAR 皮套</span>
                             <button class="btn-action secondary small" onclick="openWorldPersonaManager('char')">管理</button>
                         </div>
                         <select class="dialog-input" id="wc-char-select"></select>
@@ -285,18 +287,18 @@
 
                     <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:12.5px; font-weight:600;">🦊 USER 皮套</span>
+                            <span style="font-size:12.5px; font-weight:600;">USER 皮套</span>
                             <button class="btn-action secondary small" onclick="openWorldPersonaManager('user')">管理</button>
                         </div>
                         <select class="dialog-input" id="wc-user-select"></select>
                     </div>
 
                     <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
-                        <div style="font-size:12.5px; font-weight:600;">📚 关联世界书（可多选，可选）</div>
+                        <div style="font-size:12.5px; font-weight:600;">关联世界书（可多选）</div>
                         <div id="wc-wb-list" style="display:flex; flex-direction:column; gap:0; max-height:260px; overflow-y:auto; border:0.5px solid var(--border-light); border-radius:10px;"></div>
                     </div>
                     <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
-                        <label style="font-size:11px; color:var(--text-sub);">开局场景（AI 从这里开始写）</label>
+                        <label style="font-size:11px; color:var(--text-sub);">开局场景</label>
                         <textarea class="dialog-input" id="wc-opening" style="height:80px; line-height:1.5;" placeholder="描述故事怎么开始的..."></textarea>
                     </div>
                 </div>
@@ -306,14 +308,14 @@
             <div class="sub-page" id="page-world-setting-mgr">
                 <div class="sub-page-header">
                     <button class="header-btn" onclick="closeSubModal('page-world-setting-mgr')">‹ 返回</button>
-                    <span style="font-size:15px; font-weight:600;">🌍 世界观库</span>
+                    <span style="font-size:15px; font-weight:600;">世界观库</span>
                     <button class="btn-action small" onclick="editWorldSetting(null)">＋ 新建</button>
                 </div>
                 <div class="sub-page-body">
-                    <div style="display:flex; gap:6px;">
+                    <div style="display:flex; gap:12px;">
                         <input type="file" id="ws-import-file" style="display:none;" accept=".txt,.json,.md" onchange="importWorldSettingFile(this)">
-                        <button class="btn-action secondary small" onclick="document.getElementById('ws-import-file').click()">📂 导入文件</button>
-                        <button class="btn-action secondary small" onclick="exportWorldSettings()">💾 导出全部</button>
+                        <button class="btn-action secondary small" onclick="document.getElementById('ws-import-file').click()"><i class="fa-solid fa-download"></i> 导入文件</button>
+                        <button class="btn-action secondary small" onclick="exportWorldSettings()"><i class="fa-solid fa-arrow-up-from-bracket"></i> 导出全部</button>
                     </div>
                     <div id="world-setting-list" style="display:flex; flex-direction:column; gap:8px;"></div>
                 </div>
@@ -323,7 +325,7 @@
             <div class="sub-page" id="page-world-persona-mgr">
                 <div class="sub-page-header">
                     <button class="header-btn" onclick="closeSubModal('page-world-persona-mgr')">‹ 返回</button>
-                    <span style="font-size:15px; font-weight:600;">🎭 皮套库</span>
+                    <span style="font-size:15px; font-weight:600;">皮套库</span>
                     <button class="btn-action small" onclick="editWorldPersona(null)">＋ 新建</button>
                 </div>
                 <div class="sub-page-body">
@@ -336,33 +338,33 @@
             <div class="sub-page" id="page-world-wizard">
                 <div class="sub-page-header">
                     <button class="header-btn" onclick="closeSubModal('page-world-wizard')">‹ 返回</button>
-                    <span style="font-size:15px; font-weight:600;">🎲 一键生成</span>
+                    <span style="font-size:15px; font-weight:600;">一键生成</span>
                     <span style="width:40px;"></span>
                 </div>
                 <div class="sub-page-body">
-                    <div style="font-size:12px; color:var(--text-sub); line-height:1.5;">选几个你感兴趣的方向，AI 会帮你生成世界观 + CHAR 皮套 + USER 皮套，自动存入对应的库。</div>
+                    <div style="font-size:12px; color:var(--text-sub); line-height:1.5;">选几个你感兴趣的方向</div>
 
                     <div class="action-card" style="padding:12px;">
-                        <div style="font-size:12.5px; font-weight:600; margin-bottom:6px;">🌐 世界类型</div>
+                        <div style="font-size:12.5px; font-weight:600; margin-bottom:6px;"><i class="fa-regular fa-map"></i> 世界类型</div>
                         <div id="wiz-world-tags" class="tab-bar" style="flex-wrap:wrap;"></div>
                     </div>
 
                     <div class="action-card" style="padding:12px;">
-                        <div style="font-size:12.5px; font-weight:600; margin-bottom:6px;">💕 关系调性</div>
+                        <div style="font-size:12.5px; font-weight:600; margin-bottom:6px;"><i class="fa-solid fa-people-arrows"></i> 关系调性</div>
                         <div id="wiz-relation-tags" class="tab-bar" style="flex-wrap:wrap;"></div>
                     </div>
 
                     <div class="action-card" style="padding:12px;">
-                        <div style="font-size:12.5px; font-weight:600; margin-bottom:6px;">🎭 角色气质</div>
+                        <div style="font-size:12.5px; font-weight:600; margin-bottom:6px;"><i class="fa-solid fa-person-dress-burst"></i> 角色气质</div>
                         <div id="wiz-persona-tags" class="tab-bar" style="flex-wrap:wrap;"></div>
                     </div>
 
                     <div class="action-card" style="padding:12px;">
-                        <div style="font-size:12.5px; font-weight:600; margin-bottom:6px;">🔥 故事走向</div>
+                        <div style="font-size:12.5px; font-weight:600; margin-bottom:6px;"><i class="fa-solid fa-sitemap"></i> 故事走向</div>
                         <div id="wiz-plot-tags" class="tab-bar" style="flex-wrap:wrap;"></div>
                     </div>
 
-                    <button class="btn-action" style="padding:14px;" onclick="runWorldWizard()">✨ 让 AI 生成</button>
+                    <button class="btn-action" style="padding:14px;" onclick="runWorldWizard()"><i class="fa-solid fa-spinner"></i> 让 AI 生成</button>
                 </div>
             </div>
 
@@ -401,7 +403,7 @@
                         <select class="cal-select-native" id="cal-month-select" onchange="onDatePickerChange()"></select>
                     </div>
                     <button class="cal-arrow-btn" onclick="shiftMonth(1)">›</button>
-                    <button class="cal-today-btn" onclick="goToToday()" title="回到今天">今天</button>
+                    <button class="cal-today-btn" onclick="goToToday()" title="回到今天"><i class="fa-solid fa-bone"></i></button>
                 </div>
 
                 <!-- 星期表头 -->
@@ -417,11 +419,11 @@
             <div class="todo-card">
                 <div class="todo-header">
                     <div class="todo-title">
-                        <span>📝 今日日程</span>
+                        <span><i class="fa-solid fa-calendar-check"></i> 今日日程</span>
                         <span id="todo-date-badge" style="font-size:11px; font-weight:normal; color:var(--text-sub);"></span>
                     </div>
                     <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                        <button class="btn-action secondary small" onclick="openEditDayMarkerDialog()">🏷️ 标记此日</button>
+                        <button class="btn-action secondary small" onclick="openEditDayMarkerDialog()"><i class="fa-solid fa-tag"></i> 标记</button>
                         <button class="btn-action small" onclick="openCreateTodoDialog()">+ 待办</button>
                     </div>
                 </div>
@@ -436,8 +438,8 @@
                     <div class="menu-item-left">
                         <span class="menu-icon">🍅</span>
                         <div>
-                            <div class="menu-title">番茄专注</div>
-                            <div class="menu-sub">25 分钟，和 TA 一起保持专注</div>
+                            <div class="menu-title">番茄烘焙工坊</div>
+                            <div class="menu-sub">专注烘焙番茄料理</div>
                         </div>
                     </div>
                     <span class="menu-arrow">›</span>
@@ -508,7 +510,7 @@
             <div class="menu-list">
                 <div class="menu-item" onclick="openSubModal('page-api-setting')">
                     <div class="menu-item-left">
-                        <span class="menu-icon">🔌</span>
+                        <span class="menu-icon"><i class="fa-solid fa-link"></i></span>
                         <div>
                             <div class="menu-title">API 设置</div>
                             <div class="menu-sub" id="sub-api-status">未连接</div>
@@ -519,7 +521,7 @@
 
                 <div class="menu-item" onclick="openPersonaHub()">
                     <div class="menu-item-left">
-                        <span class="menu-icon">👤</span>
+                        <span class="menu-icon"><i class="fa-solid fa-user-astronaut"></i></span>
                         <div>
                             <div class="menu-title">人物档案库</div>
                             <div class="menu-sub">User & Char 分组管理</div>
@@ -530,7 +532,7 @@
 
                 <div class="menu-item" onclick="openWbHub()">
                     <div class="menu-item-left">
-                        <span class="menu-icon">📚</span>
+                        <span class="menu-icon"><i class="fa-solid fa-disease"></i></span>
                         <div>
                             <div class="menu-title">世界书与记忆管理</div>
                             <div class="menu-sub">破限 / 记忆卷宗 / 世界书分类</div>
@@ -541,7 +543,7 @@
 
                 <div class="menu-item" onclick="openSubModal('page-chat-params')">
                     <div class="menu-item-left">
-                        <span class="menu-icon">💬</span>
+                        <span class="menu-icon"><i class="fa-solid fa-hands-asl-interpreting"></i></span>
                         <div>
                             <div class="menu-title">聊天参数调节</div>
                             <div class="menu-sub" id="sub-chat-params">温度 0.85 · 上下文 20轮</div>
@@ -552,7 +554,7 @@
 
                 <div class="menu-item" onclick="openSubModal('page-stickers')">
                     <div class="menu-item-left">
-                        <span class="menu-icon">🖼️</span>
+                        <span class="menu-icon"><i class="fa-brands fa-napster"></i></span>
                         <div>
                             <div class="menu-title">表情包管理</div>
                             <div class="menu-sub">分组管理与重命名</div>
@@ -563,7 +565,7 @@
 
                 <div class="menu-item" onclick="openAppearanceSetting()">
                     <div class="menu-item-left">
-                        <span class="menu-icon">🎨</span>
+                        <span class="menu-icon"><i class="fa-solid fa-brush"></i></span>
                         <div>
                             <div class="menu-title">外观设置</div>
                             <div class="menu-sub">字体 / 气泡 / 颜色 / 背景 / 间距</div>
@@ -574,7 +576,7 @@
 
                 <div class="menu-item" onclick="openTokenAuditPage()">
                     <div class="menu-item-left">
-                        <span class="menu-icon">📊</span>
+                        <span class="menu-icon"><i class="fa-solid fa-retweet"></i></span>
                         <div>
                             <div class="menu-title">调试日志</div>
                             <div class="menu-sub">Token 消耗与原始数据返回</div>
@@ -585,7 +587,7 @@
 
                 <div class="menu-item" onclick="openMcpSettings()">
                     <div class="menu-item-left">
-                        <span class="menu-icon">🔗</span>
+                        <span class="menu-icon"><i class="fa-solid fa-share-nodes"></i></span>
                         <div>
                             <div class="menu-title">本地 MCP 工具</div>
                             <div class="menu-sub" id="sub-mcp-status">未配置</div>
@@ -611,7 +613,7 @@
     <div class="sub-page" id="page-anniversary-list">
         <div class="sub-page-header">
             <button class="header-btn" onclick="closeSubModal('page-anniversary-list')">‹ 返回</button>
-            <span style="font-size:15px; font-weight:600;">🗓️ 纪念日</span>
+            <span style="font-size:15px; font-weight:600;">重要的日子</span>
             <span style="width:40px;"></span>
         </div>
         <div class="sub-page-body">
@@ -631,24 +633,19 @@
     <!-- 底部固定主导航栏 -->
     <div class="bottom-nav">
         <button class="nav-item active" onclick="switchMainTab('contacts', '联系人', this)">
-            <span class="nav-icon">💬</span>
-            <span>聊天</span>
+            <span class="nav-icon"><i class="fa-regular fa-comments"></i></span>   
         </button>
         <button class="nav-item" onclick="switchMainTab('theater', '剧场工坊', this)">
-            <span class="nav-icon">📖</span>
-            <span>剧场</span>
+            <span class="nav-icon"><i class="fa-solid fa-explosion"></i></span>
         </button>
         <button class="nav-item" onclick="switchMainTab('calendar', '专属日程', this)">
-            <span class="nav-icon">📅</span>
-            <span>日程</span>
+            <span class="nav-icon"><i class="fa-regular fa-calendar-days"></i></span>
         </button>
         <button class="nav-item" onclick="switchMainTab('discover', '发现', this)">
-            <span class="nav-icon">✨</span>
-            <span>发现</span>
+            <span class="nav-icon"><i class="fa-solid fa-gamepad"></i></span>
         </button>
         <button class="nav-item" onclick="switchMainTab('settings', '配置', this)">
-            <span class="nav-icon">⚙️</span>
-            <span>设置</span>
+            <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
         </button>
     </div>
 
@@ -671,35 +668,35 @@
         <div class="sub-page-body">
             <div class="action-card" style="padding:14px; display:flex; flex-direction:row; gap:14px; align-items:center;">
                 <!-- 头像最左侧，点击可换 -->
-                <div style="width:60px; height:60px; border-radius:50%; overflow:hidden; background:#2c2c2e; display:flex; justify-content:center; align-items:center; font-size:28px; flex-shrink:0; cursor:pointer;" id="detail-avatar" title="点击更换头像" onclick="openAvatarEditor()">🐺</div>
+                <div style="width:60px; height:60px; border-radius:50%; overflow:hidden; background:#2c2c2e; display:flex; justify-content:center; align-items:center; font-size:28px; flex-shrink:0; cursor:pointer;" id="detail-avatar" title="点击更换头像" onclick="openAvatarEditor()"><i class="fa-solid fa-user"></i></div>
                 <div style="flex:1; min-width:0;">
                     <div style="display:flex; align-items:center; gap:6px;">
                         <span style="font-size:10px; color:var(--text-sub); flex-shrink:0;">备注</span>
-                        <input type="text" id="detail-edit-name" value="AI 伴侣" style="font-size:16px; font-weight:600; border:none; background:transparent; color:var(--text-main); outline:none; width:100%; min-width:0; flex:1 1 auto; box-sizing:border-box; display:block;" onchange="updateContactName(this.value)">
+                        <input type="text" id="detail-edit-name" value="新朋友" style="font-size:16px; font-weight:600; border:none; background:transparent; color:var(--text-main); outline:none; width:100%; min-width:0; flex:1 1 auto; box-sizing:border-box; display:block;" onchange="updateContactName(this.value)">
                     </div>
-                    <div style="font-size:11px; color:var(--text-sub); margin-top:3px;">本名：<span id="detail-real-name">AI 伴侣</span></div>
+                    <div style="font-size:11px; color:var(--text-sub); margin-top:3px;"><span id="detail-real-name">新朋友</span></div>
                 </div>
             </div>
 
             <div class="action-card">
                 <div class="action-row" onclick="openDiaryPage()">
-                    <span>📖 聊天日记</span>
+                    <span><i class="fa-solid fa-image-portrait"></i>  聊天日记</span>
                     <span style="color:var(--text-sub);">›</span>
                 </div>
                 <div class="action-row" onclick="openFavoritesPage()">
-                    <span>⭐ 收藏夹</span>
+                    <span><i class="fa-solid fa-layer-group"></i> 收藏夹</span>
                     <span style="color:var(--text-sub);">›</span>
                 </div>
                 <div class="action-row" onclick="openMemoryCorePage()">
-                    <span>🧠 记忆核心</span>
+                    <span><i class="fa-solid fa-head-side-virus"></i> 记忆核心</span>
                     <span style="color:var(--text-sub);">›</span>
                 </div>
                 <div class="action-row" onclick="openSchedulePage()">
-                    <span>📅 我的日程表</span>
+                    <span><i class="fa-solid fa-calendar-days"></i> 日程表</span>
                     <span style="color:var(--text-sub);">›</span>
                 </div>
                 <div class="action-row" onclick="openWbBindingPage()">
-                    <span>📚 关联世界书</span>
+                    <span><i class="fa-solid fa-paperclip"></i> 关联世界书</span>
                     <span style="color:var(--text-sub);">›</span>
                 </div>
             </div>
@@ -707,7 +704,7 @@
             <!-- 主动消息：TA 是否主动来找你 -->
             <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:10px;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:12.5px; font-weight:600; color:var(--text-main);">💬 TA 主动来找你</span>
+                    <span style="font-size:12.5px; font-weight:600; color:var(--text-main);"><i class="fa-regular fa-heart"></i> TA 主动来找你</span>
                     <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-main);">
                         <input type="checkbox" id="ct-push-enabled" onchange="updateContactPush()" style="width:16px; height:16px; accent-color:var(--theme-color, #007aff);"> 开启
                     </label>
@@ -792,10 +789,10 @@
             <button class="header-btn" style="font-size:12px;" onclick="openPersonaSubList('char')">+ 新增</button>
         </div>
         <div class="sub-page-body">
-            <div style="font-size:12px; font-weight:600; color:var(--text-sub); margin-top:4px;">👥 CHAR (伴侣角色)</div>
+            <div style="font-size:12px; font-weight:600; color:var(--text-sub); margin-top:4px;"><i class="fa-solid fa-user"></i> CHAR (伴侣角色)</div>
             <div class="persona-grid" id="char-persona-grid"></div>
             
-            <div style="font-size:12px; font-weight:600; color:var(--text-sub); margin-top:12px;">👤 USER (用户自己)</div>
+            <div style="font-size:12px; font-weight:600; color:var(--text-sub); margin-top:12px;"><i class="fa-regular fa-user"></i> USER (用户自己)</div>
             <div class="persona-grid" id="user-persona-grid"></div>
         </div>
     </div>
@@ -871,7 +868,7 @@
             </div>
 
 <div id="wb-tab-memory" style="display:none; flex-direction:column; gap:12px;">
-    <button class="btn-action" style="background: linear-gradient(135deg, #4a72c4 0%, #2dd4bf 100%);" onclick="triggerAutoMemorySummary()">⚡ 一键提纯近期对话为记忆碎片</button>
+    <button class="btn-action" style="background: linear-gradient(135deg, #4a72c4 0%, #2dd4bf 100%);" onclick="triggerAutoMemorySummary()"><i class="fa-solid fa-crosshairs"></i> 一键提纯近期对话为记忆碎片</button>
     
     <div class="action-card" style="padding:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:600; margin-bottom:6px;">
@@ -1033,7 +1030,7 @@
                     <!-- 左：我的便利贴（图钉+头像） -->
                     <div class="journal-note-tape">
                         <div class="tape-header">
-                            <span class="tape-tag-fox"><span id="journal-fox-avatar" class="journal-avatar">🦊</span> 我的碎碎念</span><span style="margin-left:auto; font-size:13px;">📌</span>
+                            <span class="tape-tag-fox"><span id="journal-fox-avatar" class="journal-avatar"></span> 我</span><span style="margin-left:auto; font-size:13px;"><i class="fa-solid fa-seedling"></i></span>
                         </div>
                         <textarea class="journal-textarea-clean" id="journal-fox-text" maxlength="20" placeholder="记下今天的一句话感受..." oninput="updateJournalLen()"></textarea>
                     </div>
@@ -1041,7 +1038,7 @@
                     <!-- 右：TA 的便利贴（图钉+头像） -->
                     <div class="journal-note-tape">
                         <div class="tape-header">
-                            <span class="tape-tag-wolf" id="journal-wolf-tag"><span id="journal-wolf-avatar" class="journal-avatar">🐺</span> <span id="journal-wolf-name">TA</span> 的心声印章</span><span style="margin-left:auto; font-size:13px;">📌</span>
+                            <span class="tape-tag-wolf" id="journal-wolf-tag"><span id="journal-wolf-avatar" class="journal-avatar"></span> <span id="journal-wolf-name">TA</span><span style="margin-left:auto; font-size:13px;"><i class="fa-solid fa-quote-right"></i></span>
                         </div>
                         <textarea class="journal-textarea-clean" id="journal-wolf-text" maxlength="20" placeholder="TA 的专属备忘..." oninput="updateJournalLen()"></textarea>
                     </div>
@@ -1082,7 +1079,7 @@
                     <div class="pomo-avatar-box" id="pomo-avatar-slot" onclick="openPomoCharPicker()">🐺</div>
                     <div class="pomo-supervisor-info">
                         <div class="pomo-supervisor-name">
-                            <span id="pomo-supervisor-title" onclick="openPomoCharPicker()">AI 伴侣</span>
+                            <span id="pomo-supervisor-title" onclick="openPomoCharPicker()">新朋友</span>
                             <span class="pomo-badge-online">烘焙中</span>
                             <span style="font-size:10px; color:var(--pomo-bay-blue); cursor:pointer; margin-left:auto;" onclick="openPomoCharPicker()">切换 ›</span>
                         </div>
@@ -1626,7 +1623,7 @@
     <!-- 联系人主动视频来电呼入界面 -->
     <div class="incoming-call-overlay" id="incoming-call-modal">
         <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
-            <div style="font-size:20px; font-weight:600; color:#fff;" id="incoming-caller-name">AI 伴侣</div>
+            <div style="font-size:20px; font-weight:600; color:#fff;" id="incoming-caller-name">新朋友</div>
             <div style="font-size:12px; color:rgba(255,255,255,0.6);">邀请你进行视频通话...</div>
         </div>
         <div class="persona-avatar-box" style="width:96px; height:96px; font-size:42px; border:2px solid rgba(255,255,255,0.25);" id="incoming-caller-avatar">🐺</div>
@@ -1669,7 +1666,7 @@
     </div>
 </div>
 
-<script src="app.js?v=37"></script>
+<script src="app.js?v=41"></script>
 <script>
 // 物理直连：手账存盘保存绝对通道 (绝不被外部中断)
 function saveJournalEntry() {

@@ -355,7 +355,7 @@ function isImageUrl(s) {
 let appData = {
     api: JSON.parse(localStorage.getItem('sr_api') || '{"endpoint":"https://api.openai.com/v1","key":"","model":""}'),
     params: JSON.parse(localStorage.getItem('sr_params') || '{"temp":0.85,"history":20}'),
-    contactName: localStorage.getItem('sr_c_name') || "AI 伴侣",
+    contactName: localStorage.getItem('sr_c_name') || "新朋友",
     charRealName: localStorage.getItem('sr_c_name') || "",
     contacts: (() => {
         try { const c = JSON.parse(localStorage.getItem('sr_contacts') || 'null'); return Array.isArray(c) ? c : null; } catch(e) { return null; }
@@ -430,7 +430,7 @@ function initContacts() {
         }
         const active = appData.contacts.find(c => c.id === appData.activeContactId) || appData.contacts[0];
         if (active) {
-            appData.contactName = active.name || 'AI 伴侣';
+            appData.contactName = active.name || '新朋友';
             appData.charRealName = active.realName || active.name || '';
         }
         return;
@@ -444,7 +444,7 @@ function initContacts() {
     }
     const firstContact = {
         id: 'c_' + Date.now(),
-        name: oldName || 'AI 伴侣',
+        name: oldName || '新朋友',
         realName: oldName || '',
         avatar: avatar,
         prompt: charPersona.prompt || '',
@@ -485,7 +485,7 @@ function switchContact(contactId) {
     if (!target) { openAlert('联系人不存在'); return; }
     appData.activeContactId = target.id;
     appData.chatHistory = Array.isArray(target.chatHistory) ? target.chatHistory : [];
-    appData.contactName = target.name || 'AI 伴侣';
+    appData.contactName = target.name || '新朋友';
     appData.charRealName = target.realName || target.name || '';
     target.unread = 0;
     target.lastActive = Date.now();
@@ -504,10 +504,10 @@ function updateChatHeaderUI() {
     if (statusEl) {
         const activeC = getActiveContact();
         if (isGroupContact(activeC)) {
-            statusEl.innerText = '在线 · ' + ((activeC.memberIds || []).length + (activeC.includeMe ? 1 : 0)) + ' 人在线 ▾';
+            statusEl.innerText = '' + ((activeC.memberIds || []).length + (activeC.includeMe ? 1 : 0)) + ' 人在线 ▾';
         } else {
             const st = (activeC && activeC.status) || '';
-            statusEl.innerText = st ? ('在线 · ' + st.replace(/[>><<\[\]]/g, '').replace(/^[·:：\s]+/, '').trim() + ' ▾') : '在线 ▾';
+            statusEl.innerText = st ? ('' + st.replace(/[>><<\[\]]/g, '').replace(/^[·:：\s]+/, '').trim() + ' ▾') : '';
         }
     }
     const hvContent = document.getElementById('heart-voice-content');
@@ -523,7 +523,7 @@ function updateChatHeaderUI() {
     }
 
     const lockSender = document.getElementById('lock-sender-name');
-    if (lockSender) lockSender.innerText = (appData.contactName || 'AI 伴侣');
+    if (lockSender) lockSender.innerText = (appData.contactName || '新朋友');
     const detailName = document.getElementById('detail-edit-name');
     if (detailName) detailName.value = appData.contactName;
     const detailReal = document.getElementById('detail-real-name');
@@ -678,15 +678,6 @@ function persistCalendar() {
     localStorage.setItem('sr_todos', JSON.stringify(calState.todos));
 }
 
-const presetHolidays = {
-    "2026-09-25": "中秋",
-    "2026-09-26": "中秋",
-    "2026-09-27": "中秋",
-    "2026-10-01": "国庆",
-    "2026-10-02": "国庆",
-    "2026-10-03": "国庆"
-};
-
 let dateClickTimer = null;
 let currentPhotoEditIndex = -1;
 
@@ -791,13 +782,6 @@ window.Lockscreen = {
     }
 };
 
-let lockFlashlight = false;
-function toggleLockFlashlight() {
-    lockFlashlight = !lockFlashlight;
-    const ls = document.getElementById('lockscreen');
-    if (ls) ls.style.filter = lockFlashlight ? 'brightness(1.7)' : 'none';
-    openAlert(lockFlashlight ? '🔦 手电筒已开启' : '🔦 手电筒已关闭');
-}
 let lockHeartOn = false;
 function toggleLockHeart() {
     lockHeartOn = !lockHeartOn;
@@ -938,13 +922,13 @@ function openMemoSettings() {
     const chars = (appData.contacts || []).filter(c => c.type !== 'group');
     const checked = getMemoCharIds();
     document.getElementById('dialog-body').innerHTML = `
-        <div style="font-size:11px; color:var(--text-sub); line-height:1.5;">勾选想要一起写便利贴的角色：<br>每个角色会有一张独立的小纸条（标题为「角色名＋的小纸条」）。</div>
+        <div style="font-size:11px; color:var(--text-sub); line-height:1.5;">勾选想要一起写便利贴的角色：</div>
         <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px; max-height:200px; overflow-y:auto;">
             ${chars.length ? chars.map(c => `
                 <label style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-page); border-radius:8px;">
                     <input type="checkbox" class="memo-char-cb" value="${c.id}" ${checked.includes(c.id) ? 'checked' : ''} style="width:16px; height:16px;">
                     <span>${avatarText(c.avatar, '🐺')}</span>
-                    <span style="font-size:13px;">${c.name || 'AI 伴侣'}</span>
+                    <span style="font-size:13px;">${c.name || '新朋友'}</span>
                 </label>`).join('') : '<div style="font-size:11px; color:var(--text-sub); padding:6px;">还没有联系人，先添加联系人吧。</div>'}
         </div>
     `;
@@ -1687,7 +1671,7 @@ function renderVoiceItem(chatView, item) {
         <div class="bubble-container">
             <div class="msg-bubble" onclick="playVoiceBubble(this)">
                 <div class="voice-bubble-inner">
-                    <span class="voice-icon">🎙️</span>
+                    <span class="voice-icon"><i class="fa-solid fa-microphone-lines"></i></span>
                     <span class="voice-wave">▁▃▅▇▅▃▁</span>
                     <span class="voice-duration">${duration}"</span>
                 </div>
@@ -1763,15 +1747,15 @@ async function triggerAiReply() {
         } else if (!prompt && appData.personas && appData.personas.char && appData.personas.char.length) {
             prompt = (appData.personas.char.find(c => c.id === activePersonaCharId) || appData.personas.char[0]).prompt || '';
         }
-        charObj = { name: (personaC && personaC.name) || activeContactC.name || 'AI 伴侣', prompt: prompt };
+        charObj = { name: (personaC && personaC.name) || activeContactC.name || '新朋友', prompt: prompt };
     } else {
         charObj = (appData.personas.char.find(c => c.id === activePersonaCharId))
                || (appData.personas.char && appData.personas.char[0])
-               || { name: "AI 伴侣", prompt: "" };
+               || { name: "新朋友", prompt: "" };
     }
     const userObj = appData.personas.user.find(u => u.id === activePersonaUserId)
                  || (appData.personas.user && appData.personas.user[0])
-                 || { name: "AI 伴侣", prompt: "" };
+                 || { name: "新朋友", prompt: "" };
     const activeJailbreaks = (appData.jailbreaks || []).filter(jb => (appData.boundWbIds || []).includes(jb.id) && jb.enabled);
     const activeWorldbooks = (appData.worldbooks || []).filter(wb => (appData.boundWbIds || []).includes(wb.id) && wb.enabled);
 
@@ -2397,7 +2381,7 @@ function openAppDialog(type, extraData) {
             <input type="text" class="dialog-input" id="dlg-fake-img-input" placeholder="输入画面描述 (如: 我坐在海边)...">
             <select class="dialog-input" id="dlg-fake-img-size" style="margin-top:6px;">
                 <option value="1:1">1:1 方形</option>
-                <option value="3:4" selected>3:4 竖版（小红书风）</option>
+                <option value="3:4" selected>3:4 竖版</option>
                 <option value="4:3">4:3 横版</option>
                 <option value="9:16">9:16 竖屏</option>
                 <option value="16:9">16:9 横屏</option>
@@ -2446,7 +2430,7 @@ function openAppDialog(type, extraData) {
         };
     } else if (type === 'core-mem') {
         titleEl.innerText = "铭刻记忆核心";
-        bodyEl.innerHTML = `<textarea class="dialog-input" id="dlg-mem-text" style="height:90px;" placeholder="输入需要永久刻入核心的羁绊或铁律..."></textarea>`;
+        bodyEl.innerHTML = `<textarea class="dialog-input" id="dlg-mem-text" style="height:90px;" placeholder="输入需要永久刻入核心的羁绊或铁律或震撼到心情的关键对话..."></textarea>`;
         confirmBtn.onclick = () => {
             const text = document.getElementById('dlg-mem-text').value.trim();
             if (text) {
@@ -2543,7 +2527,7 @@ function sendVoiceBubble(text) {
         <div class="bubble-container">
             <div class="msg-bubble" onclick="playVoiceBubble(this)">
                 <div class="voice-bubble-inner">
-                    <span class="voice-icon">🎙️</span>
+                    <span class="voice-icon"><i class="fa-solid fa-microphone-lines"></i></span>
                     <span class="voice-wave">▁▃▅▇▅▃▁</span>
                     <span class="voice-duration">${duration}"</span>
                 </div>
@@ -2815,7 +2799,7 @@ function renderContactsList() {
                 ${avatarHtml}
                 <div class="contact-info">
                     <div class="contact-name-row">
-                        <span class="contact-name">${c.name || 'AI 伴侣'}${c.pinned ? ' 📌' : ''}</span>
+                        <span class="contact-name">${c.name || '新朋友'}${c.pinned ? ' 📌' : ''}</span>
                         ${c.unread ? `<span class="contact-unread">${c.unread}</span>` : ''}
                     </div>
                     <div class="contact-preview">${sub ? sub + ' · ' : ''}${preview}</div>
@@ -2842,7 +2826,7 @@ function openContactMenu(contactId) {
     menu.id = 'contact-pop-menu';
     menu.className = 'contact-pop-menu';
     menu.innerHTML = `
-        <button class="contact-pop-item" onclick="togglePinContact('${contactId}')">${c.pinned ? '📌 取消置顶' : '📌 置顶聊天'}</button>
+        <button class="contact-pop-item" onclick="togglePinContact('${contactId}')">${c.pinned ? '📌 取消置顶' : '<i class="fa-solid fa-thumbtack"></i> 置顶聊天'}</button>
         <button class="contact-pop-item" onclick="openAddGroupDialog()">👥 加入新群组</button>
         <button class="contact-pop-item danger" onclick="deleteContact('${contactId}')">🗑️ 删除</button>
     `;
@@ -2899,10 +2883,10 @@ function openAddContactDialog() {
     titleEl.innerText = "添加联系人";
     bodyEl.innerHTML = `
         <div style="font-size:11px; color:var(--text-sub); margin-bottom:8px;">为自己添加一个想对话的角色：</div>
-        <input type="text" class="dialog-input" id="dlg-contact-avatar" placeholder="头像（表情或图片链接，如 🐺，可留空）">
-        <input type="text" class="dialog-input" id="dlg-contact-name" placeholder="备注名（显示在列表/聊天里，如：林见深）" style="margin-top:6px;">
-        <input type="text" class="dialog-input" id="dlg-contact-realname" placeholder="本名（TA 的真实名字，可留空同备注）" style="margin-top:6px;">
-        <textarea class="dialog-input" id="dlg-contact-prompt" style="height:90px; margin-top:6px; line-height:1.45;" placeholder="角色人设：TA 是什么样的人？性格、说话方式、你们的关系……写清楚 AI 才演得准"></textarea>
+        <input type="text" class="dialog-input" id="dlg-contact-avatar" placeholder="头像（表情或图片链接）">
+        <input type="text" class="dialog-input" id="dlg-contact-name" placeholder="备注名" style="margin-top:6px;">
+        <input type="text" class="dialog-input" id="dlg-contact-realname" placeholder="本名" style="margin-top:6px;">
+        <textarea class="dialog-input" id="dlg-contact-prompt" style="height:90px; margin-top:6px; line-height:1.45;" placeholder="角色人设：TA 是什么样的人？性格、说话方式、你们的关系……"></textarea>
     `;
     confirmBtn.onclick = () => {
         const name = document.getElementById('dlg-contact-name').value.trim();
@@ -3006,7 +2990,7 @@ function openAddGroupDialog() {
                 <label style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-page); border-radius:8px;">
                     <input type="checkbox" class="group-member-cb" value="${c.id}" style="width:16px; height:16px;">
                     <span>${avatarText(c.avatar, '🐺')}</span>
-                    <span style="font-size:13px;">${c.name || 'AI 伴侣'}</span>
+                    <span style="font-size:13px;">${c.name || '新朋友'}</span>
                 </label>`).join('') : '<div style="font-size:11px; color:var(--text-sub); padding:6px;">还没有联系人，请先添加联系人再建群。</div>'}
         </div>
         <label style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-page); border-radius:8px; margin-top:4px;">
@@ -3053,7 +3037,7 @@ function getGroupMembers(group) {
     }
     (group.memberIds || []).forEach(mid => {
         const c = appData.contacts.find(x => x.id === mid);
-        if (c) members.push({ role: 'char', id: mid, name: c.name || 'AI 伴侣', avatar: c.avatar || '🐺', prompt: c.prompt || '' });
+        if (c) members.push({ role: 'char', id: mid, name: c.name || '新朋友', avatar: c.avatar || '🐺', prompt: c.prompt || '' });
     });
     return members;
 }
@@ -3072,11 +3056,11 @@ function deleteContact(contactId) {
                 if (appData.contacts.length) {
                     const nxt = appData.contacts[0];
                     appData.chatHistory = Array.isArray(nxt.chatHistory) ? nxt.chatHistory : [];
-                    appData.contactName = nxt.name || 'AI 伴侣';
+                    appData.contactName = nxt.name || '新朋友';
                     appData.charRealName = nxt.realName || nxt.name || '';
                 } else {
                     appData.chatHistory = [];
-                    appData.contactName = 'AI 伴侣';
+                    appData.contactName = '新朋友';
                     appData.charRealName = '';
                 }
             }
@@ -3112,7 +3096,7 @@ function openContactDetailPage() {
 function closeContactDetailPage() { closeSubModal('page-contact-detail'); }
 
 function updateContactName(val) {
-    const name = val.trim() || 'AI 伴侣';
+    const name = val.trim() || '新朋友';
     appData.contactName = name;
     const active = getActiveContact();
     if (active) active.name = name;
@@ -3732,7 +3716,7 @@ function toggleJournalCharPopup() {
     pop.className = 'journal-char-popup';
     const cur = getJournalChar();
     pop.innerHTML = chars.map(c => `
-        <button class="journal-char-opt ${(cur && cur.id === c.id) ? 'cur' : ''}" onclick="setJournalChar('${c.id}')">${renderAvatarHtml(c.avatar, 'journal-opt-avatar', '🐺')} ${escapeHtml(c.name || 'AI 伴侣')}</button>`).join('');
+        <button class="journal-char-opt ${(cur && cur.id === c.id) ? 'cur' : ''}" onclick="setJournalChar('${c.id}')">${renderAvatarHtml(c.avatar, 'journal-opt-avatar', '🐺')} ${escapeHtml(c.name || '新朋友')}</button>`).join('');
     document.body.appendChild(pop);
     if (titleEl) {
         const r = titleEl.getBoundingClientRect();
@@ -3756,7 +3740,7 @@ function toggleJournalCharPicker() {
     if (!chars.length) return;
     const cur = getJournalChar();
     sel.innerHTML = chars.map(c => `
-        <span style="cursor:pointer; margin:2px 4px; display:inline-block; padding:3px 8px; border-radius:12px; background:${(cur && cur.id === c.id) ? 'var(--ios-blue)' : 'var(--bg-page)'}; color:${(cur && cur.id === c.id) ? '#fff' : 'var(--text-main)'}; font-size:11px;" onclick="event.stopPropagation(); setJournalChar('${c.id}')">${avatarText(c.avatar, '🐺')} ${c.name || 'AI 伴侣'}</span>`).join('');
+        <span style="cursor:pointer; margin:2px 4px; display:inline-block; padding:3px 8px; border-radius:12px; background:${(cur && cur.id === c.id) ? 'var(--ios-blue)' : 'var(--bg-page)'}; color:${(cur && cur.id === c.id) ? '#fff' : 'var(--text-main)'}; font-size:11px;" onclick="event.stopPropagation(); setJournalChar('${c.id}')">${avatarText(c.avatar, '🐺')} ${c.name || '新朋友'}</span>`).join('');
 }
 function setJournalChar(cid) {
     journalCharId = cid;
@@ -4215,7 +4199,7 @@ function isChatActive() {
 }
 
 // ==================== 锁屏/聊天：真实天气（open-meteo 免费，无需 MCP 也能用） ====================
-let weatherNow = { temp: null, cond: '', city: '福州', ts: 0 };
+let weatherNow = { temp: null, cond: '', city: '厦门', ts: 0 };
 function weatherCodeText(code) {
     const map = {
         0: '晴', 1: '晴间多云', 2: '多云', 3: '阴', 45: '雾', 48: '雾凇',
@@ -5081,7 +5065,7 @@ function syncPersonaToContacts(p) {
         c = {
             id: p.id,
             type: 'char',
-            name: p.name || 'AI 伴侣',
+            name: p.name || '新朋友',
             realName: p.name || '',
             avatar: p.avatar || '',
             prompt: p.prompt || '',
@@ -5170,10 +5154,10 @@ function startVideoCall(isFromChar) {
             const model = appData.api.model;
             const charObj = appData.personas.char.find(c => c.id === activePersonaCharId)
                          || (appData.personas.char && appData.personas.char[0])
-                         || { name: "AI 伴侣", prompt: "" };
+                         || { name: "新朋友", prompt: "" };
             const userObj = appData.personas.user.find(u => u.id === activePersonaUserId)
                          || (appData.personas.user && appData.personas.user[0])
-                         || { name: "AI 伴侣", prompt: "" };
+                         || { name: "新朋友", prompt: "" };
 
             let openerText = '（接通了，看着屏幕里的你）';
 
@@ -5233,8 +5217,8 @@ async function sendVideoCallMessage() {
     url = url.endsWith('/v1') ? `${url}/chat/completions` : `${url}/v1/chat/completions`;
 
     const activeC = getActiveContact();
-    const charObj = activeC ? { name: activeC.name || 'AI 伴侣' } : (appData.personas.char.find(c => c.id === activePersonaCharId) || { name: "AI 伴侣" });
-    const userObj = appData.personas.user.find(u => u.id === activePersonaUserId) || { name: "AI 伴侣" };
+    const charObj = activeC ? { name: activeC.name || '新朋友' } : (appData.personas.char.find(c => c.id === activePersonaCharId) || { name: "新朋友" });
+    const userObj = appData.personas.user.find(u => u.id === activePersonaUserId) || { name: "新朋友" };
     const systemPrompt = `你是${charObj.name}，正在和${userObj.name}面对面视频通话。这是线下沉浸模式，允许细致的神态、动作描写与深情对话。`;
 
     try {
@@ -6168,7 +6152,7 @@ function applyAppearance() {
     const a = appearance;
     const root = document.documentElement.style;
     root.setProperty('--app-font-size', a.fontSize + 'px');
-    root.setProperty('--app-font-family', a.fontFamily);
+    root.setProperty('--app-font-family', customFontFamilyName ? ("'" + customFontFamilyName.replace(/"/g, '') + "', " + a.fontFamily) : a.fontFamily);
     root.setProperty('--bubble-font-size', a.bubbleFontSize + 'px');
     root.setProperty('--time-font-size', a.timeFontSize + 'px');
     root.setProperty('--header-font-size', a.headerFontSize + 'px');
@@ -6217,30 +6201,76 @@ function applyAppearance() {
     }
 }
 
-// 动态加载自定义字体（支持样式表链接或字体文件直链）
+// 动态加载自定义字体（支持样式表链接或字体文件直链），加载成功后自动应用为界面字体
+let customFontFamilyName = '';
+function knownFontFamilies() {
+    const fams = [];
+    try { for (const f of document.fonts) fams.push(String(f.family || '').replace(/["']/g, '').trim()); } catch (e) {}
+    return fams.filter(Boolean);
+}
+function applyLoadedFont(link) {
+    if (!link || (appearance && appearance.fontLink || '').trim() !== link) return;
+    // 方式一：样式表链接 → 直接 fetch CSS 解析出字体家族名（最可靠）
+    if (link && link.indexOf('http') === 0 && !/\.(woff2?|ttf|otf)(\?|$)/i.test(link)) {
+        fetch(link).then(function (r) { return r.text(); }).then(function (css) {
+            if ((appearance && appearance.fontLink || '').trim() !== link) return;
+            const names = [];
+            const re = /font-family\s*:\s*(['"]?)([^;'"{}]+)\1/g;
+            let m;
+            while ((m = re.exec(css))) {
+                const n = m[2].trim().replace(/^['"]|['"]$/g, '');
+                if (n && names.indexOf(n) === -1) names.push(n);
+            }
+            if (names.length) { customFontFamilyName = names[names.length - 1]; applyFontFamilyVar(); }
+        }).catch(function () {});
+        return;
+    }
+    // 方式二：新增字体族检测（兜底）
+    setTimeout(function () {
+        const cur = knownFontFamilies();
+        const prev = window.__knownFonts || [];
+        const added = cur.filter(function (f) { return prev.indexOf(f) === -1; });
+        window.__knownFonts = cur;
+        const name = (added && added.length) ? added[added.length - 1] : (customFontFamilyName || '');
+        if (name) { customFontFamilyName = name; applyFontFamilyVar(); }
+    }, 400);
+}
+// 仅更新 --app-font-family 变量（避免与 applyAppearance 互相递归）
+function applyFontFamilyVar() {
+    const a = appearance || {};
+    document.documentElement.style.setProperty('--app-font-family',
+        customFontFamilyName ? ("'" + customFontFamilyName.replace(/"/g, '') + "', " + (a.fontFamily || '')) : (a.fontFamily || ''));
+}
 function applyFontLink() {
     const link = (appearance && appearance.fontLink || '').trim();
     const el = document.getElementById('custom-font-link');
     if (!link) {
         if (el) el.remove();
+        customFontFamilyName = '';
+        applyFontFamilyVar();
         return;
     }
     if (el && el.getAttribute('data-href') === link) return;
     if (el) el.remove();
+    if (!window.__knownFonts) window.__knownFonts = knownFontFamilies();
     let node = null;
     if (/\.(woff2?|ttf|otf)(\?|$)/i.test(link)) {
         node = document.createElement('style');
         node.id = 'custom-font-link';
         node.setAttribute('data-href', link);
         node.textContent = `@font-face { font-family: 'CustomFont'; src: url('${link}') format('truetype'); }`;
+        document.head.appendChild(node);
+        customFontFamilyName = 'CustomFont';
+        applyFontFamilyVar();
     } else {
         node = document.createElement('link');
         node.id = 'custom-font-link';
         node.setAttribute('data-href', link);
         node.rel = 'stylesheet';
         node.href = link;
+        node.onload = function () { applyLoadedFont(link); };
+        document.head.appendChild(node);
     }
-    document.head.appendChild(node);
 }
 
 // 把当前外观值回填到设置页控件
@@ -6409,7 +6439,13 @@ async function renderDiscoverMCP() {
         section.style.display = 'block';
         if (countEl) countEl.innerText = '已接入 ' + tools.length + ' 个外部工具（聊天中 AI 可直接调用）';
         if (toolsBox) {
-            toolsBox.innerHTML = tools.map((t, idx) => `
+            const citySaved = localStorage.getItem('sr_city') || '厦门';
+            toolsBox.innerHTML = `<div style="display:flex; align-items:center; gap:6px; font-size:11px; padding:6px 4px 8px;">
+                    <span>📍</span>
+                    <span style="color:var(--text-sub); flex-shrink:0;">天气城市</span>
+                    <input id="mcp-city-input" style="flex:1; min-width:0; font-size:12px; padding:5px 8px; border:1px solid var(--line, rgba(0,0,0,.08)); border-radius:8px; background:var(--bg-chat, #fff); color:var(--text-main);" value="${escapeHtml(citySaved)}" onchange="saveMcpCity(this.value)">
+                    <span style="color:var(--text-sub); font-size:10px; flex-shrink:0;">天气默认查这里</span>
+                </div>` + tools.map((t, idx) => `
                 <div style="padding:8px 10px; background:var(--bg-page); border-radius:10px; cursor:pointer;"
                      onclick="this.querySelector('.mcp-tool-desc').style.display = this.querySelector('.mcp-tool-desc').style.display === 'block' ? 'none' : 'block';">
                     <div style="display:flex; align-items:center; gap:8px;">
@@ -6427,6 +6463,14 @@ async function renderDiscoverMCP() {
         section.style.display = 'none';
     }
 }
+// 保存天气城市（影响锁屏天气 + AI 查天气的默认城市）
+function saveMcpCity(v) {
+    const city = (v || '').trim() || '福州';
+    localStorage.setItem('sr_city', city);
+    if (typeof refreshWeather === 'function') refreshWeather();
+    openAlert('天气城市已设为「' + city + '」');
+}
+
 
 // 打开外观设置页时同步控件
 function openAppearanceSetting() {
@@ -7311,7 +7355,7 @@ function batchForwardNovels() {
     if (!fanwaiState.selectedNovelIds.length) { openAlert('请先点击选中要转发的番外'); return; }
     openAppDialog('confirm', {
         title: "转发到聊天",
-        msg: `确定将选中的 ${fanwaiState.selectedNovelIds.length} 篇番外发送到微信聊天流吗？对方将能看到并对此做出反应。`,
+        msg: `确定将选中的 ${fanwaiState.selectedNovelIds.length} 篇番外发送到聊天框吗？对方将能看到并对此做出反应。`,
         onConfirm: () => {
             const chatView = document.getElementById('view-chat');
             const now = new Date();
@@ -7921,8 +7965,8 @@ async function runWorldWizard() {
 角色气质：${wizSelected.persona.join('、') || '随意'}
 故事走向：${wizSelected.plot.join('、') || '随意'}`;
 
-    const activeChar = appData.personas.char.find(c => c.id === activePersonaCharId) || appData.personas.char[0] || { name: 'AI 伴侣', avatar: '🐺' };
-    const activeUser = appData.personas.user.find(u => u.id === activePersonaUserId) || appData.personas.user[0] || { name: 'AI 伴侣', avatar: '🦊' };
+    const activeChar = appData.personas.char.find(c => c.id === activePersonaCharId) || appData.personas.char[0] || { name: '新朋友', avatar: '🐺' };
+    const activeUser = appData.personas.user.find(u => u.id === activePersonaUserId) || appData.personas.user[0] || { name: '新朋友', avatar: '🦊' };
 
     const prompt = `你是一位互动小说策划师。用户选了以下方向，请你生成一份完整的文游开局设定。
 
@@ -8437,7 +8481,7 @@ function pomoRefreshCharCard() {
 function pomoGetActiveChar() {
     const list = (appData.personas && appData.personas.char) || [];
     const found = list.find(c => c.id === pomoState.activeCharId);
-    return found || list[0] || { id: '_fallback', name: 'AI 伴侣', avatar: '🐺', prompt: '' };
+    return found || list[0] || { id: '_fallback', name: '新朋友', avatar: '🐺', prompt: '' };
 }
 
 function openPomoCharPicker() {
@@ -8932,7 +8976,7 @@ function renderWheelCharPicks() {
     box.innerHTML = chars.map(c => `
         <label style="display:flex; align-items:center; gap:4px; font-size:12px; background:var(--bg-page); padding:4px 8px; border-radius:8px;">
             <input type="checkbox" class="wheel-char-cb" value="${c.id}" style="width:14px; height:14px;">
-            <span>${avatarText(c.avatar, '🐺')}</span>${c.name || 'AI 伴侣'}
+            <span>${avatarText(c.avatar, '🐺')}</span>${c.name || '新朋友'}
         </label>`).join('') || '<span style="font-size:11px; color:var(--text-sub);">还没有联系人，先添加角色吧</span>';
 }
 
@@ -8959,7 +9003,7 @@ async function wheelGenByAI() {
     if (!theme) { openAlert('先写一个主题，TA 才知道要出什么选项'); return; }
     const chars = Array.from(document.querySelectorAll('.wheel-char-cb:checked')).map(cb => {
         const c = appData.contacts.find(x => x.id === cb.value);
-        return c ? (c.name || 'AI 伴侣') : '';
+        return c ? (c.name || '新朋友') : '';
     }).filter(Boolean);
     const key = appData.api.key, model = appData.api.model, endpoint = appData.api.endpoint;
     if (!key || !model) { openAlert('请先配置 API'); return; }
@@ -9011,18 +9055,18 @@ function sendWheelResultToChat() {
     const theme = document.getElementById('wheel-theme').value.trim();
     const players = Array.from(document.querySelectorAll('.wheel-char-cb:checked')).map(cb => {
         const c = appData.contacts.find(x => x.id === cb.value);
-        return c ? (c.name || 'AI 伴侣') : '';
+        return c ? (c.name || '新朋友') : '';
     }).filter(Boolean);
     const targets = (appData.contacts || []).filter(c => c.type !== 'group');
     const dlg = document.getElementById('app-dialog');
     document.getElementById('dialog-title').innerText = '转发转盘结果';
     document.getElementById('dialog-body').innerHTML = `
-        <div style="font-size:11px; color:var(--text-sub); margin-bottom:6px;">选择把结果发给谁（会以卡片形式出现在对方聊天里）：</div>
+        <div style="font-size:11px; color:var(--text-sub); margin-bottom:6px;">选择把结果发给谁：</div>
         <div style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto;">
             ${targets.length ? targets.map(c => `
                 <label style="display:flex; align-items:center; gap:8px; padding:7px 8px; background:var(--bg-page); border-radius:8px;">
                     <input type="radio" name="wheel-fwd-target" value="${c.id}" ${c.id === appData.activeContactId ? 'checked' : ''} style="width:15px; height:15px;">
-                    <span>${avatarText(c.avatar, '🐺')}</span><span style="font-size:13px;">${c.name || 'AI 伴侣'}</span>
+                    <span>${avatarText(c.avatar, '🐺')}</span><span style="font-size:13px;">${c.name || '新朋友'}</span>
                 </label>`).join('') : '<div style="font-size:11px; color:var(--text-sub);">还没有联系人</div>'}
         </div>
     `;
