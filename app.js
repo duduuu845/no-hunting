@@ -338,8 +338,12 @@ function timeDeltaText() {
 }
 // 返回要拼进 systemPrompt 的时间上下文（隐蔽、不强调）
 function buildTimeContext() {
-    return `[现实时钟:${formatFullNow()} | 距离上轮消息流逝:${timeDeltaText()}]
-（以上时间信息仅供你感知现实环境；除非对当前对话有实际意义——如早晚问候、等待时长、作息相关——不要在回复中主动提及或反复强调时间。）`;
+    const w = weatherNow;
+    const weatherLine = (w && w.temp != null)
+        ? ` | 实时天气:${w.city} ${w.temp}°C ${w.cond}`
+        : '';
+    return `[现实时钟:${formatFullNow()} | 距离上轮消息流逝:${timeDeltaText()}${weatherLine}]
+（以上时间/天气信息仅供你感知现实环境；除非对当前对话有实际意义——如早晚问候、等待时长、出门提醒——不要在回复中主动提及或反复强调。）`;
 }
 
 // 判断一个字符串是否是 dataURL 或 http 图片地址
@@ -389,7 +393,10 @@ let appData = {
     chatHistory: JSON.parse(localStorage.getItem('sr_chat_history') || '[]'),
     lastMemoCommented: localStorage.getItem('sr_last_memo_commented') || '',
     lastUserPhoto: localStorage.getItem('sr_last_user_photo') || '',
-    lastUserPhotoKey: localStorage.getItem('sr_last_user_photo_key') || ''
+    lastUserPhotoKey: localStorage.getItem('sr_last_user_photo_key') || '',
+    activeMsgs: (() => {
+        try { const a = JSON.parse(localStorage.getItem('sr_active_msgs') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+    })()
 };
 
 // ==================== 清空所有数据 ====================
@@ -512,7 +519,7 @@ function updateChatHeaderUI() {
     const memoAvatar = document.getElementById('memo-char-avatar');
     if (memoAvatar) {
         const active = getActiveContact();
-        memoAvatar.innerText = (active && active.avatar) || '🐺';
+        memoAvatar.innerText = avatarText(active && active.avatar, '🐺');
     }
 
     const lockSender = document.getElementById('lock-sender-name');
@@ -837,6 +844,7 @@ function unlockScreen() {
 
 // ==================== 4大主Tab切换 ====================
 function switchMainTab(viewId, title, btn) {
+    currentMainView = viewId;
     try {
         document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
@@ -935,7 +943,7 @@ function openMemoSettings() {
             ${chars.length ? chars.map(c => `
                 <label style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-page); border-radius:8px;">
                     <input type="checkbox" class="memo-char-cb" value="${c.id}" ${checked.includes(c.id) ? 'checked' : ''} style="width:16px; height:16px;">
-                    <span>${c.avatar || '🐺'}</span>
+                    <span>${avatarText(c.avatar, '🐺')}</span>
                     <span style="font-size:13px;">${c.name || 'AI 伴侣'}</span>
                 </label>`).join('') : '<div style="font-size:11px; color:var(--text-sub); padding:6px;">还没有联系人，先添加联系人吧。</div>'}
         </div>
@@ -1058,6 +1066,7 @@ function openSubModal(id) {
     if (id === 'page-mystic') renderMysticBaseInfoPreview();
     if (id === 'page-appearance-setting') renderAppearancePresets();
     if (id === 'page-doc-analysis') populateDocCharSelect();
+    if (id === 'page-api-setting') { fillPushConfig(); fillActiveMsgs(); }
 }
 function closeSubModal(id) { document.getElementById(id).classList.remove('open'); }
 
@@ -2873,6 +2882,14 @@ function renderAvatarHtml(avatar, cls, fallback) {
     return `<span class="${cls}">${a}</span>`;
 }
 
+// 头像安全文本：图片(base64/http)在纯文本/下拉/勾选场景显示 🖼️，emoji 原样
+// 修复：联系人头像上传成图片后，各处选择器不再显示 base64 乱码
+function avatarText(avatar, fallback) {
+    const a = avatar || fallback || '🐾';
+    if (typeof a === 'string' && (a.startsWith('http') || a.startsWith('data:'))) return '🖼️';
+    return a;
+}
+
 // 打开添加联系人弹窗（无模板，完整联系人设置表单，与「联系人信息」同风格）
 function openAddContactDialog() {
     const dialog = document.getElementById('app-dialog');
@@ -2988,7 +3005,7 @@ function openAddGroupDialog() {
             ${chars.length ? chars.map(c => `
                 <label style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--bg-page); border-radius:8px;">
                     <input type="checkbox" class="group-member-cb" value="${c.id}" style="width:16px; height:16px;">
-                    <span>${c.avatar || '🐺'}</span>
+                    <span>${avatarText(c.avatar, '🐺')}</span>
                     <span style="font-size:13px;">${c.name || 'AI 伴侣'}</span>
                 </label>`).join('') : '<div style="font-size:11px; color:var(--text-sub); padding:6px;">还没有联系人，请先添加联系人再建群。</div>'}
         </div>
@@ -3089,6 +3106,7 @@ function openContactDetailPage() {
         avatarEl.innerHTML = (typeof av === 'string' && (av.startsWith('http') || av.startsWith('data:')))
             ? `<img class="avatar-img" src="${escapeHtml(av)}" alt="" style="width:60px; height:60px; border-radius:50%; object-fit:cover;">` : av;
     }
+    fillContactPushConfig();
     openSubModal('page-contact-detail');
 }
 function closeContactDetailPage() { closeSubModal('page-contact-detail'); }
@@ -3533,6 +3551,7 @@ function toggleTodoDone(id, isDone) {
 
     todo.done = isDone;
     if (isDone) {
+        syncTodoToPush(todo, 'done');
         itemEl.classList.add('completed');
         setTimeout(() => {
             calState.todos = calState.todos.filter(t => t.id !== id);
@@ -3672,7 +3691,7 @@ function openCreateTodoDialog() {
     confirmBtn.onclick = () => {
         const title = document.getElementById('dlg-todo-title').value.trim();
         if (title) {
-            calState.todos.push({
+            const newTodo = {
                 id: 'td_' + Date.now(),
                 date: calState.selectedDateStr,
                 title: title,
@@ -3681,7 +3700,9 @@ function openCreateTodoDialog() {
                 location: document.getElementById('dlg-todo-loc').value.trim(),
                 remind: document.getElementById('dlg-todo-remind').checked,
                 done: false
-            });
+            };
+            calState.todos.push(newTodo);
+            syncTodoToPush(newTodo, 'sync');
             persistCalendar();
             renderTodoList();
             closeAppDialog();
@@ -3735,7 +3756,7 @@ function toggleJournalCharPicker() {
     if (!chars.length) return;
     const cur = getJournalChar();
     sel.innerHTML = chars.map(c => `
-        <span style="cursor:pointer; margin:2px 4px; display:inline-block; padding:3px 8px; border-radius:12px; background:${(cur && cur.id === c.id) ? 'var(--ios-blue)' : 'var(--bg-page)'}; color:${(cur && cur.id === c.id) ? '#fff' : 'var(--text-main)'}; font-size:11px;" onclick="event.stopPropagation(); setJournalChar('${c.id}')">${c.avatar || '🐺'} ${c.name || 'AI 伴侣'}</span>`).join('');
+        <span style="cursor:pointer; margin:2px 4px; display:inline-block; padding:3px 8px; border-radius:12px; background:${(cur && cur.id === c.id) ? 'var(--ios-blue)' : 'var(--bg-page)'}; color:${(cur && cur.id === c.id) ? '#fff' : 'var(--text-main)'}; font-size:11px;" onclick="event.stopPropagation(); setJournalChar('${c.id}')">${avatarText(c.avatar, '🐺')} ${c.name || 'AI 伴侣'}</span>`).join('');
 }
 function setJournalChar(cid) {
     journalCharId = cid;
@@ -4187,6 +4208,351 @@ async function callImageApiWithUserPhoto(promptText, silent = false) {
     }
 }
 
+// ==================== 当前主视图（判断是否正在聊天） ====================
+let currentMainView = 'chat';
+function isChatActive() {
+    return currentMainView === 'chat' || currentMainView === 'chat-container';
+}
+
+// ==================== 锁屏/聊天：真实天气（open-meteo 免费，无需 MCP 也能用） ====================
+let weatherNow = { temp: null, cond: '', city: '福州', ts: 0 };
+function weatherCodeText(code) {
+    const map = {
+        0: '晴', 1: '晴间多云', 2: '多云', 3: '阴', 45: '雾', 48: '雾凇',
+        51: '毛毛雨', 53: '毛毛雨', 55: '毛毛雨', 56: '冻毛毛雨', 57: '冻毛毛雨',
+        61: '小雨', 63: '中雨', 65: '大雨', 66: '冻雨', 67: '冻雨',
+        71: '小雪', 73: '中雪', 75: '大雪', 77: '雪粒',
+        80: '阵雨', 81: '阵雨', 82: '强阵雨', 85: '阵雪', 86: '强阵雪',
+        95: '雷阵雨', 96: '雷阵雨伴冰雹', 99: '雷阵雨伴冰雹'
+    };
+    return map[code] || '未知';
+}
+async function refreshWeather() {
+    try {
+        const lat = parseFloat(localStorage.getItem('sr_lat') || '26.08');
+        const lon = parseFloat(localStorage.getItem('sr_lon') || '119.30');
+        const city = localStorage.getItem('sr_city') || '福州';
+        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code,relative_humidity_2m&timezone=Asia%2FShanghai');
+        const d = await res.json();
+        if (d && d.current) {
+            weatherNow = { temp: Math.round(d.current.temperature_2m), cond: weatherCodeText(d.current.weather_code), city: city, ts: Date.now() };
+            if (window.Lockscreen && window.Lockscreen.setWeather) window.Lockscreen.setWeather(weatherNow.temp, weatherNow.cond);
+        }
+    } catch (e) {}
+}
+
+// ==================== 联系人：主动消息配置（开关 + 固定时间 / TA 自己决定） ====================
+function fillContactPushConfig() {
+    const active = getActiveContact();
+    if (!active) return;
+    const en = document.getElementById('ct-push-enabled');
+    if (en) en.checked = !!active.pushEnabled;
+    const mode = active.pushMode || 'schedule';
+    document.querySelectorAll('input[name="ct-push-mode"]').forEach(r => { r.checked = (r.value === mode); });
+    const minEl = document.getElementById('ct-push-min');
+    const maxEl = document.getElementById('ct-push-max');
+    if (minEl) minEl.value = active.pushMinHours || 3;
+    if (maxEl) maxEl.value = active.pushMaxHours || 12;
+    const aiRow = document.getElementById('ct-push-ai-row');
+    if (aiRow) aiRow.style.display = (mode === 'ai') ? 'block' : 'none';
+}
+function updateContactPush() {
+    const active = getActiveContact();
+    if (!active) return;
+    const en = document.getElementById('ct-push-enabled');
+    active.pushEnabled = !!(en && en.checked);
+    const modeEl = document.querySelector('input[name="ct-push-mode"]:checked');
+    active.pushMode = (modeEl && modeEl.value) || 'schedule';
+    const minEl = document.getElementById('ct-push-min');
+    const maxEl = document.getElementById('ct-push-max');
+    if (minEl && minEl.value) active.pushMinHours = Math.max(0.5, parseFloat(minEl.value));
+    if (maxEl && maxEl.value) active.pushMaxHours = Math.max(1, parseFloat(maxEl.value));
+    if (active.pushMinHours > active.pushMaxHours) active.pushMaxHours = active.pushMinHours + 1;
+    const aiRow = document.getElementById('ct-push-ai-row');
+    if (aiRow) aiRow.style.display = (active.pushMode === 'ai') ? 'block' : 'none';
+    persist();
+    openAlert(active.pushEnabled ? '已开启「' + (active.realName || active.name) + '」主动找你' : '已关闭主动消息');
+}
+
+// ==================== TA 自己决定：AI 决策 + 一次性推送 ====================
+function aiPushContacts() {
+    return (appData.contacts || []).filter(c => c.type !== 'group' && c.pushEnabled && c.pushMode === 'ai');
+}
+function beijingHHMM(offsetMs) {
+    const t = new Date(Date.now() + (offsetMs || 0));
+    const hh = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false }).format(t);
+    const dd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(t);
+    return { hhmm: hh, date: dd };
+}
+async function aiDecideContact(c) {
+    const ep = (appData.api && appData.api.endpoint) || '';
+    const key = (appData.api && appData.api.key) || '';
+    const model = (appData.api && appData.api.model) || '';
+    if (!ep || !key || !model) return;
+    const minH = Math.max(0.5, parseFloat(c.pushMinHours || 3));
+    const maxH = Math.max(minH + 1, parseFloat(c.pushMaxHours || 12));
+    const recent = (c.chatHistory || []).slice(-6).map(m => (m.role === 'user' ? 'user: ' : (c.name || 'TA') + ': ') + (typeof m.text === 'string' ? m.text : '')).join('\n');
+    const w = weatherNow;
+    const nowText = beijingHHMM(0).date + ' ' + beijingHHMM(0).hhmm;
+    const weatherText = (w && w.temp != null) ? ('，' + w.city + ' ' + w.temp + '°C ' + w.cond) : '';
+    let url = ep.endsWith('/') ? ep.slice(0, -1) : ep;
+    url = url.endsWith('/v1') ? url + '/chat/completions' : url + '/v1/chat/completions';
+    const sys = '你是「' + (c.realName || c.name) + '」。' + (c.prompt ? '人设：' + c.prompt : '') +
+        '\n\n现在由你决定：要不要主动来找 user 说句话。当前真实时间：' + nowText + weatherText +
+        '。最近对话：\n' + (recent || '（还没有聊过）') +
+        '\n\n判断依据：你们的关系、最近聊天的氛围、现在的时间是否适合打扰（深夜/清晨少打扰）。' +
+        '请只输出一行 JSON，格式：{"send": true或false, "text": "主动说的话(20字内,不主动则留空)", "nextInHours": 数字(' + minH + '到' + maxH + '之间,你决定下次来看 user 的间隔)}。不要任何其他字符。';
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: model, messages: [{ role: 'system', content: sys }, { role: 'user', content: '请决定' }], temperature: 1.1, max_tokens: 120 })
+        });
+        const data = await res.json();
+        const txt = ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '').trim();
+        let dec = null;
+        try { dec = JSON.parse(txt.replace(/```json|```/g, '').trim()); } catch (e) {
+            const m2 = txt.match(/\{[\s\S]*\}/);
+            if (m2) { try { dec = JSON.parse(m2[0]); } catch (e2) { dec = null; } }
+        }
+        if (dec && typeof dec.nextInHours === 'number') {
+            localStorage.setItem('sr_push_ai_last_' + c.id, String(Date.now()));
+            if (dec.send && dec.text) {
+                const clean = String(dec.text).replace(/["""'']/g, '').replace(/[\uFF0C\u3002\uFF01\uFF1F\u3001]+$/, '').trim();
+                const target = beijingHHMM(60 * 1000);
+                const workerUrl = getPushWorkerUrl();
+                if (workerUrl && getPushEnabled()) {
+                    try {
+                        await fetch(workerUrl.replace(/\/+$/, '') + '/api/active/once', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: 'ai_' + Date.now(), date: target.date, time: target.hhmm, text: clean, charName: (c.realName || c.name) })
+                        });
+                        openAlert('💬 ' + (c.realName || c.name) + ' 决定主动来找你：' + clean);
+                    } catch (e) {}
+                }
+            }
+        }
+    } catch (e) {}
+}
+// 每 10 分钟检查一次「TA 自己决定」；正在聊天时跳过，不打扰
+async function aiActiveCheck() {
+    if (!getPushEnabled()) return;
+    const list = aiPushContacts();
+    if (!list.length) return;
+    if (isChatActive()) return;
+    for (const c of list) {
+        const last = parseInt(localStorage.getItem('sr_push_ai_last_' + c.id) || '0', 10) || 0;
+        const minH = Math.max(0.5, parseFloat(c.pushMinHours || 3));
+        if (Date.now() - last < minH * 3600000) continue;
+        try { await aiDecideContact(c); } catch (e) {}
+    }
+}
+setInterval(aiActiveCheck, 600000);
+
+// ==================== 后台推送（真后台提醒，网页关闭也能收） ====================
+// 需要配合 Cloudflare Worker（cloudflare_push/worker.js）部署，设置页填 Worker 地址后开启
+const VAPID_PUBLIC_KEY = 'BJ4GJ7qbweX3rt2kIb3IxEPDilBr_R7VMdQArXt8vWG35amAzoZnOEHDZ5HNV6Vn68JYHFVMGN8PW4cjpkQZtxE';
+function getPushWorkerUrl() { return localStorage.getItem('sr_push_worker_url') || ''; }
+function getPushEnabled() { return localStorage.getItem('sr_push_enabled') === '1'; }
+function b64urlEncode(buf) {
+    let s = '';
+    for (const b of buf) s += String.fromCharCode(b);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function enableBackendPush() {
+    const workerUrl = getPushWorkerUrl();
+    if (!workerUrl) { openAlert('请先填写后台推送 Worker 地址（Cloudflare Workers 免费部署）'); return; }
+    try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            openAlert('当前浏览器不支持后台推送，安卓请用 Chrome，iPhone 需添加到主屏幕'); return;
+        }
+        const reg = await navigator.serviceWorker.register('./sw.js');
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') { openAlert('通知权限被拒绝，请到浏览器/系统设置里允许「禁猎区」的通知后重试'); return; }
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: VAPID_PUBLIC_KEY });
+        }
+        const resp = await fetch(workerUrl.replace(/\/+$/, '') + '/api/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subscription: {
+                    endpoint: sub.endpoint,
+                    keys: { p256dh: b64urlEncode(sub.getKey('p256dh')), auth: b64urlEncode(sub.getKey('auth')) }
+                }
+            })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (data.ok) {
+            localStorage.setItem('sr_push_enabled', '1');
+            localStorage.setItem('sr_push_worker_url', workerUrl);
+            refreshPushStatus();
+            openAlert('✅ 后台提醒已开启！到点待办即使网页关闭也会弹系统通知');
+        } else {
+            openAlert('推送服务器返回错误：' + (data.error || '未知错误'));
+        }
+    } catch (e) {
+        openAlert('开启失败：' + e.message);
+    }
+}
+async function disableBackendPush() {
+    try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) { const sub = await reg.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); }
+    } catch (e) {}
+    localStorage.removeItem('sr_push_enabled');
+    refreshPushStatus();
+    openAlert('后台提醒已关闭');
+}
+function refreshPushStatus() {
+    const el = document.getElementById('push-status-text');
+    if (!el) return;
+    const enabled = getPushEnabled();
+    const workerUrl = getPushWorkerUrl();
+    el.innerText = enabled ? '已开启' + (workerUrl ? ' · ' + workerUrl : '') : '未开启';
+}
+function fillPushConfig() {
+    const el = document.getElementById('cfg-push-worker');
+    if (el) el.value = getPushWorkerUrl();
+    refreshPushStatus();
+}
+// 待办同步到后台推送服务器（开启后调用；失败静默，不影响本地功能）
+async function syncTodoToPush(todo, action) {
+    if (!getPushEnabled()) return;
+    const workerUrl = getPushWorkerUrl();
+    if (!workerUrl) return;
+    const base = workerUrl.replace(/\/+$/, '');
+    try {
+        if (action === 'done' || action === 'delete') {
+            await fetch(base + '/api/todo/' + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: todo.id }) });
+        } else {
+            await fetch(base + '/api/todo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+                id: todo.id, date: todo.date, time: todo.time, title: todo.title,
+                location: todo.location || '', notify: !!todo.remind, done: !!todo.done
+            }) });
+        }
+    } catch (e) {}
+}
+// 页面加载后：若已开启后台提醒，重新注册 SW 并刷新订阅（浏览器推送 token 会轮换）
+function reinitBackendPush() {
+    if (!getPushEnabled()) return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+        return reg.pushManager.getSubscription();
+    }).then(async sub => {
+        if (!sub) return;
+        const workerUrl = getPushWorkerUrl();
+        if (!workerUrl) return;
+        try {
+            await fetch(workerUrl.replace(/\/+$/, '') + '/api/subscribe', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscription: { endpoint: sub.endpoint, keys: { p256dh: b64urlEncode(sub.getKey('p256dh')), auth: b64urlEncode(sub.getKey('auth')) } } })
+            });
+        } catch (e) {}
+    }).catch(() => {});
+}
+if (document.readyState === 'complete') { reinitBackendPush(); refreshWeather(); }
+else window.addEventListener('load', function() { reinitBackendPush(); refreshWeather(); });
+
+// ==================== TA 的主动消息（定时推送一句话） ====================
+function saveActiveMsgs() {
+    localStorage.setItem('sr_active_msgs', JSON.stringify(appData.activeMsgs));
+}
+function renderActiveMsgs() {
+    const box = document.getElementById('active-msg-list');
+    if (!box) return;
+    if (!appData.activeMsgs.length) {
+        box.innerHTML = '<div style="font-size:11px; color:var(--text-sub); padding:6px 0;">还没有设定主动消息。设定后，到点 TA 会主动推一句话给你（网页关闭也能收到）。</div>';
+        return;
+    }
+    box.innerHTML = appData.activeMsgs.map(m => `
+        <div style="display:flex; align-items:center; gap:6px; padding:6px 8px; background:var(--bg-page); border-radius:8px; margin-bottom:6px;">
+            <input type="time" value="${m.time}" style="flex-shrink:0; font-size:11px; border:none; background:transparent; color:var(--text-main);" onchange="updateActiveMsgTime('${m.id}', this.value)">
+            <div style="flex:1; min-width:0; font-size:11px; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(m.text)}</div>
+            <button class="btn-action danger small" onclick="removeActiveMsg('${m.id}')" style="flex-shrink:0;">✕</button>
+        </div>`).join('');
+}
+function addActiveMsg() {
+    const timeEl = document.getElementById('am-time');
+    const textEl = document.getElementById('am-text');
+    const time = (timeEl && timeEl.value) || '12:00';
+    const text = (textEl && textEl.value.trim());
+    if (!text) { openAlert('先写一句 TA 要主动说的话'); return; }
+    const active = getActiveContact();
+    const charName = active ? (active.realName || active.name) : (appData.charRealName || 'TA');
+    appData.activeMsgs.push({ id: 'am_' + Date.now(), time: time, text: text, charName: charName, enabled: true });
+    saveActiveMsgs();
+    if (textEl) textEl.value = '';
+    renderActiveMsgs();
+    syncActiveMsgs();
+    openAlert('已设定：每天 ' + time + ' 由「' + charName + '」主动推送');
+}
+function updateActiveMsgTime(id, time) {
+    const m = appData.activeMsgs.find(x => x.id === id);
+    if (m) { m.time = time; saveActiveMsgs(); syncActiveMsgs(); }
+}
+function removeActiveMsg(id) {
+    appData.activeMsgs = appData.activeMsgs.filter(x => x.id !== id);
+    saveActiveMsgs();
+    renderActiveMsgs();
+    syncActiveMsgs();
+}
+// 让 TA 现场说一句话（用当前联系人的 char 人设调 API 生成）
+async function genActiveMsgText() {
+    const textEl = document.getElementById('am-text');
+    if (!textEl) return;
+    const active = getActiveContact();
+    const charName = active ? (active.realName || active.name) : (appData.charRealName || 'TA');
+    const ep = appData.api.endpoint || '';
+    const key = appData.api.key || '';
+    const model = appData.api.model || '';
+    if (!ep || !key || !model) { openAlert('请先配置 API 再让 TA 说话'); return; }
+    textEl.value = 'TA 正在想…';
+    try {
+        const persona = active && active.prompt ? active.prompt : ((appData.personas.char && appData.personas.char[0] && appData.personas.char[0].prompt) || '');
+        let url = ep.endsWith('/') ? ep.slice(0, -1) : ep;
+        url = url.endsWith('/v1') ? url + '/chat/completions' : url + '/v1/chat/completions';
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: model,
+                messages: [
+                    { role: 'system', content: '你是「' + charName + '」。' + (persona ? '人设：' + persona : '') + '现在请你主动来找 user，说一句自然、有温度的话（20字以内），像日常聊天开头那样，不要任何标点符号和引号。' },
+                    { role: 'user', content: '主动说一句话给我' }
+                ],
+                temperature: 1.0,
+                max_tokens: 60
+            })
+        });
+        const data = await res.json();
+        const text = ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '').trim();
+        if (text) textEl.value = text.replace(/[\u201c\u201d\u0027\u0022]/g, '').replace(/[\uFF0C\u3002\uFF01\uFF1F\u3001\n]+$/, '');
+        else textEl.value = '';
+    } catch (e) {
+        openAlert('生成失败：' + e.message);
+        textEl.value = '';
+    }
+}
+// 同步主动消息时间表到后台推送 Worker
+async function syncActiveMsgs() {
+    if (!getPushEnabled()) return;
+    const workerUrl = getPushWorkerUrl();
+    if (!workerUrl) return;
+    try {
+        await fetch(workerUrl.replace(/\/+$/, '') + '/api/active', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ list: appData.activeMsgs })
+        });
+    } catch (e) {}
+}
+// 打开设置页时渲染
+function fillActiveMsgs() {
+    renderActiveMsgs();
+}
+
+
 // ==================== 后台定时闹钟 ====================
 setInterval(() => {
     const now = new Date();
@@ -4197,6 +4563,12 @@ setInterval(() => {
         if (item.date === todayStr && item.time === timeNow && item.remind && !item.done && !item.alerted) {
             item.alerted = true;
             persistCalendar();
+            // 系统通知（PWA 安装后到点也能弹出，需要用户授权过通知权限）
+            try {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('禁猎区 · 日程提醒', { body: `该去执行【${item.title}】了${item.location ? '，地点：' + item.location : ''}` });
+                }
+            } catch (e) {}
             const alertText = `日程提醒：该去执行【${item.title}】了，地点在${item.location || '原定位置'}。`;
             appendBubbleToUI('char', alertText, timeNow, null, 'auto_td_' + Date.now());
             appData.chatHistory.push({
@@ -5739,6 +6111,11 @@ function saveApiSetting() {
     if (imgKey !== undefined) localStorage.setItem('sr_img_key', imgKey || '');
     if (imgModel !== undefined) localStorage.setItem('sr_img_model', imgModel || '');
 
+    // 保存后台推送 Worker 地址
+    const pushWorker = document.getElementById('cfg-push-worker')?.value.trim();
+    if (pushWorker !== undefined) localStorage.setItem('sr_push_worker_url', pushWorker || '');
+    refreshPushStatus();
+
     // 保存番外专属 API
     const fwEndpoint = document.getElementById('cfg-fanwai-endpoint')?.value.trim();
     const fwKey = document.getElementById('cfg-fanwai-key')?.value.trim();
@@ -6032,14 +6409,18 @@ async function renderDiscoverMCP() {
         section.style.display = 'block';
         if (countEl) countEl.innerText = '已接入 ' + tools.length + ' 个外部工具（聊天中 AI 可直接调用）';
         if (toolsBox) {
-            toolsBox.innerHTML = tools.map(t => `
-                <div style="display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--bg-page); border-radius:10px;">
-                    <span>🔧</span>
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-size:12.5px; font-weight:600;">${escapeHtml(t.name || '')}</div>
-                        <div style="font-size:10.5px; color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(t.description || '无描述')}</div>
+            toolsBox.innerHTML = tools.map((t, idx) => `
+                <div style="padding:8px 10px; background:var(--bg-page); border-radius:10px; cursor:pointer;"
+                     onclick="this.querySelector('.mcp-tool-desc').style.display = this.querySelector('.mcp-tool-desc').style.display === 'block' ? 'none' : 'block';">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span>🔧</span>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:12.5px; font-weight:600;">${escapeHtml(t.name || '')}</div>
+                            <div style="font-size:10.5px; color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml((t.description || '无描述').split('\n')[0])}</div>
+                        </div>
+                        <span style="font-size:10px; color:var(--ios-blue); flex-shrink:0;">▾ 展开</span>
                     </div>
-                    <span style="font-size:10px; color:var(--ios-blue); flex-shrink:0;">AI 可调用</span>
+                    <div class="mcp-tool-desc" style="display:none; font-size:11px; color:var(--text-sub); line-height:1.5; margin-top:6px; padding:8px; background:var(--bg-chat); border-radius:8px; white-space:pre-wrap; word-break:break-all;">${escapeHtml(t.description || '无描述')}</div>
                 </div>`).join('');
         }
     } catch (e) {
@@ -6509,6 +6890,8 @@ function importBackupData(input) {
             }
 
             syncAvatarAcross();
+            // 由日历标记重建纪念日库（确保标记▲/类型的纪念日一定恢复）
+            try { syncAnniversaryFromMarkers(); } catch (e) {}
             persist();
             persistCalendar();
             openAlert('数据已完整恢复！即将刷新...');
@@ -7098,7 +7481,7 @@ function renderWorldArchiveList() {
             <div class="novel-archive-item" onclick="openWorldPlay('${w.id}')">
                 <div style="display:flex; flex-direction:column; gap:3px; flex:1; overflow:hidden;">
                     <div style="font-size:13.5px; font-weight:600; color:var(--text-main);">${w.title}</div>
-                    <div style="font-size:10.5px; color:var(--text-sub);">🌍 ${ws ? ws.title : '?'} · ${cp ? cp.avatar + cp.name : '?'} × ${up ? up.avatar + up.name : '?'}</div>
+                    <div style="font-size:10.5px; color:var(--text-sub);">🌍 ${ws ? ws.title : '?'} · ${cp ? avatarText(cp.avatar, '🐾') + cp.name : '?'} × ${up ? avatarText(up.avatar, '👤') + up.name : '?'}</div>
                     <div style="font-size:10px; color:var(--text-sub);">已进行 ${w.history.length} 段 · ${new Date(w.updatedAt).toLocaleString()}</div>
                 </div>
                 <span style="color:var(--text-sub);">▷</span>
@@ -7125,11 +7508,11 @@ function renderWorldConfigSelects() {
         : `<option value="">（世界观库为空，请先去管理里新建）</option>`;
 
     cSel.innerHTML = worldData.personas.char.length
-        ? worldData.personas.char.map(p => `<option value="${p.id}">${p.avatar} ${p.name}</option>`).join('')
+        ? worldData.personas.char.map(p => `<option value="${p.id}">${avatarText(p.avatar, '🐾')} ${p.name}</option>`).join('')
         : `<option value="">（CHAR 皮套库为空）</option>`;
 
     uSel.innerHTML = worldData.personas.user.length
-        ? worldData.personas.user.map(p => `<option value="${p.id}">${p.avatar} ${p.name}</option>`).join('')
+        ? worldData.personas.user.map(p => `<option value="${p.id}">${avatarText(p.avatar, '👤')} ${p.name}</option>`).join('')
         : `<option value="">（USER 皮套库为空）</option>`;
 
     const wbList = document.getElementById('wc-wb-list');
@@ -8549,7 +8932,7 @@ function renderWheelCharPicks() {
     box.innerHTML = chars.map(c => `
         <label style="display:flex; align-items:center; gap:4px; font-size:12px; background:var(--bg-page); padding:4px 8px; border-radius:8px;">
             <input type="checkbox" class="wheel-char-cb" value="${c.id}" style="width:14px; height:14px;">
-            <span>${c.avatar || '🐺'}</span>${c.name || 'AI 伴侣'}
+            <span>${avatarText(c.avatar, '🐺')}</span>${c.name || 'AI 伴侣'}
         </label>`).join('') || '<span style="font-size:11px; color:var(--text-sub);">还没有联系人，先添加角色吧</span>';
 }
 
@@ -8639,7 +9022,7 @@ function sendWheelResultToChat() {
             ${targets.length ? targets.map(c => `
                 <label style="display:flex; align-items:center; gap:8px; padding:7px 8px; background:var(--bg-page); border-radius:8px;">
                     <input type="radio" name="wheel-fwd-target" value="${c.id}" ${c.id === appData.activeContactId ? 'checked' : ''} style="width:15px; height:15px;">
-                    <span>${c.avatar || '🐺'}</span><span style="font-size:13px;">${c.name || 'AI 伴侣'}</span>
+                    <span>${avatarText(c.avatar, '🐺')}</span><span style="font-size:13px;">${c.name || 'AI 伴侣'}</span>
                 </label>`).join('') : '<div style="font-size:11px; color:var(--text-sub);">还没有联系人</div>'}
         </div>
     `;
@@ -8901,10 +9284,10 @@ function populateDocCharSelect() {
     const seen = {};
     let opts = '<option value="">🤖 官方 AI 分析（不选默认）</option>';
     contacts.forEach(c => {
-        if (!seen[c.name]) { seen[c.name] = 1; opts += `<option value="c:${c.id}">${c.avatar || '🐾'} ${c.name}</option>`; }
+        if (!seen[c.name]) { seen[c.name] = 1; opts += `<option value="c:${c.id}">${avatarText(c.avatar, '🐾')} ${c.name}</option>`; }
     });
     personas.forEach(p => {
-        if (!seen[p.name]) { seen[p.name] = 1; opts += `<option value="p:${p.id}">${p.avatar || '👤'} ${p.name}</option>`; }
+        if (!seen[p.name]) { seen[p.name] = 1; opts += `<option value="p:${p.id}">${avatarText(p.avatar, '👤')} ${p.name}</option>`; }
     });
     sel.innerHTML = opts;
     sel.value = docAnalysisCharId || '';
@@ -9055,7 +9438,7 @@ ${docAnalysisContent.slice(0, 60000)}
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model, messages: [{ role: 'user', content: fullPrompt }], temperature: 0.7 })
+            body: JSON.stringify({ model, messages: docChat, temperature: 0.7 })
         });
         const data = await res.json();
         const text = data.choices[0].message.content.trim();

@@ -19,7 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 
     <!-- 引入独立皮肤文件 -->
-    <link rel="stylesheet" href="style.css?v=25">
+    <link rel="stylesheet" href="style.css?v=26">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
@@ -430,20 +430,6 @@
         </div>
 
         <div class="view-panel" id="view-discover" style="padding:14px; gap:12px; background:var(--bg-page); overflow-y:auto;">
-            <!-- MCP 扩展区：配置 MCP 后自动出现，无需改代码 -->
-            <div class="menu-list" id="discover-mcp-section" style="display:none;">
-                <div class="menu-item" style="cursor:default;">
-                    <div class="menu-item-left">
-                        <span class="menu-icon">🧩</span>
-                        <div>
-                            <div class="menu-title">MCP 扩展工具</div>
-                            <div class="menu-sub" id="discover-mcp-count">已接入 0 个外部工具</div>
-                        </div>
-                    </div>
-                </div>
-                <div id="discover-mcp-tools" style="padding:4px 10px 10px; display:flex; flex-direction:column; gap:6px;"></div>
-            </div>
-
             <!-- 功能工坊 -->
             <div class="menu-list">
                 <div class="menu-item" onclick="openPomodoroPage()">
@@ -500,6 +486,21 @@
                     </div>
                     <span class="menu-arrow">›</span>
                 </div>
+            </div>
+
+            <!-- MCP 扩展区（发现页最底部）：配置 MCP 后自动出现 -->
+            <div class="menu-list" id="discover-mcp-section" style="display:none;">
+                <div class="menu-item" style="cursor:default;">
+                    <div class="menu-item-left">
+                        <span class="menu-icon">🧩</span>
+                        <div>
+                            <div class="menu-title">MCP 扩展工具</div>
+                            <div class="menu-sub" id="discover-mcp-count">已接入 0 个外部工具</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="padding:0 10px 4px; font-size:10.5px; color:var(--text-sub);">点每个工具可展开查看它能做什么；聊天中 AI 会自动调用。</div>
+                <div id="discover-mcp-tools" style="padding:4px 10px 10px; display:flex; flex-direction:column; gap:6px;"></div>
             </div>
         </div>
         <!-- Tab 5: 设置中心 (导入导出并列放在最末尾) -->
@@ -700,6 +701,28 @@
                 <div class="action-row" onclick="openWbBindingPage()">
                     <span>📚 关联世界书</span>
                     <span style="color:var(--text-sub);">›</span>
+                </div>
+            </div>
+
+            <!-- 主动消息：TA 是否主动来找你 -->
+            <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:12.5px; font-weight:600; color:var(--text-main);">💬 TA 主动来找你</span>
+                    <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-main);">
+                        <input type="checkbox" id="ct-push-enabled" onchange="updateContactPush()" style="width:16px; height:16px; accent-color:var(--theme-color, #007aff);"> 开启
+                    </label>
+                </div>
+                <div style="font-size:11px; color:var(--text-sub); line-height:1.5;">开启后 TA 会在合适的时候主动推送消息给你（需先在「API 设置」里开启后台提醒）。你正在和 TA 聊天时不会打扰。</div>
+                <div style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-main);" id="ct-push-config">
+                    <label style="display:flex; align-items:center; gap:6px;"><input type="radio" name="ct-push-mode" value="schedule" onchange="updateContactPush()" style="width:14px; height:14px; accent-color:var(--theme-color, #007aff);"> 按我设定的时间（用「API 设置」里的时间表）</label>
+                    <label style="display:flex; align-items:center; gap:6px;"><input type="radio" name="ct-push-mode" value="ai" onchange="updateContactPush()" style="width:14px; height:14px; accent-color:var(--theme-color, #007aff);"> 让 TA 自己决定</label>
+                    <div id="ct-push-ai-row" style="display:none; padding-left:20px; font-size:11px; color:var(--text-sub); line-height:1.6;">
+                        间隔范围：
+                        <input type="number" id="ct-push-min" min="1" max="72" style="width:52px; font-size:12px;" onchange="updateContactPush()">
+                        ~
+                        <input type="number" id="ct-push-max" min="1" max="168" style="width:52px; font-size:12px;" onchange="updateContactPush()">
+                        小时<br>TA 会根据最近的聊天和现在的时间自己判断：要不要找你、说什么、隔多久再找你（网页打开时生效，不打扰你聊天）。
+                    </div>
                 </div>
             </div>
 
@@ -1238,9 +1261,9 @@
     <div class="sub-page-body">
         <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
             <label style="font-size:11px; color:var(--text-sub);">上传文档 (txt / md / csv / json / word / pdf)</label>
-            <label class="btn-action secondary small" style="text-align:center; display:block; cursor:pointer;">
+            <label class="btn-action secondary small doc-file-label" style="text-align:center; display:block; cursor:pointer;">
                 📂 选择文件
-                <input type="file" id="doc-analysis-file" style="display:none;" accept=".txt,.md,.csv,.json,.docx,.doc,.pdf" onchange="handleDocAnalysisFile(this)">
+                <input type="file" id="doc-analysis-file" accept=".txt,.md,.csv,.json,.docx,.doc,.pdf" onchange="handleDocAnalysisFile(this)">
             </label>
             <div id="doc-analysis-filename" style="font-size:11px; color:var(--text-sub);">未选择文件</div>
             <select class="dialog-input" id="doc-analysis-char" style="font-size:12px;" onchange="docAnalysisCharId=this.value"></select>
@@ -1339,6 +1362,34 @@
                 <input type="password" class="dialog-input" id="cfg-fanwai-key" placeholder="sk-...">
                 <label style="font-size:11px; color:var(--text-sub);">番外专用模型</label>
                 <input type="text" class="dialog-input" id="cfg-fanwai-model" placeholder="输入破甲能力强的模型 (如 claude-3-5-sonnet)">
+            </div>
+
+            <!-- 后台提醒：真后台推送（网页关闭/锁屏也能收系统通知） -->
+            <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+                <div style="font-size:12.5px; font-weight:600; color:var(--text-main);">🔔 后台提醒（真后台推送）</div>
+                <div style="font-size:11px; color:var(--text-sub); line-height:1.5;">日程待办勾了「到点提醒」后，即使网页关闭、手机锁屏，到点也会弹系统通知。需要先按交付说明部署免费的 Cloudflare 推送 Worker，并把地址填在下面。</div>
+                <input type="text" class="dialog-input" id="cfg-push-worker" placeholder="https://你的worker名.子域.workers.dev">
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button class="btn-action small" onclick="enableBackendPush()">开启后台提醒</button>
+                    <button class="btn-action secondary small" onclick="disableBackendPush()">关闭</button>
+                    <span id="push-status-text" style="font-size:11px; color:var(--ios-blue); font-weight:600;">未开启</span>
+                </div>
+                <div style="font-size:10.5px; color:var(--text-sub); line-height:1.5;">安卓请用 Chrome 打开并点「添加到主屏幕」；iPhone 需 iOS 16.4+ 且添加到主屏幕。开启后每次打开网页会自动刷新推送订阅。</div>
+            </div>
+
+            <!-- TA 的主动消息：定时推送一句话 -->
+            <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+                <div style="font-size:12.5px; font-weight:600; color:var(--text-main);">📨 TA 的主动消息</div>
+                <div style="font-size:11px; color:var(--text-sub); line-height:1.5;">设定一个时间，到点 TA 会主动推一句话给你（网页关闭也收）。每天重复。</div>
+                <div id="active-msg-list"></div>
+                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                    <input type="time" id="am-time" value="21:00" style="flex-shrink:0; font-size:12px;">
+                    <input type="text" id="am-text" class="dialog-input" placeholder="TA 要对你说的话…" style="flex:1; min-width:140px;">
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn-action small" onclick="addActiveMsg()">添加</button>
+                    <button class="btn-action secondary small" onclick="genActiveMsgText()">让 TA 想一句话</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1618,7 +1669,7 @@
     </div>
 </div>
 
-<script src="app.js?v=29"></script>
+<script src="app.js?v=37"></script>
 <script>
 // 物理直连：手账存盘保存绝对通道 (绝不被外部中断)
 function saveJournalEntry() {

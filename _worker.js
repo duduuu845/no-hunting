@@ -40,11 +40,42 @@ const TOOLS = [
       properties: { text: { type: 'string', description: '要回显的文本' } },
     },
   },
+  {
+    name: 'get_weather',
+    description: '查询某城市当前天气（气温、天气状况、湿度、风速、体感温度）。AI 需要知道"外面冷不冷/下雨吗/适合出门吗"时调用。数据来自 wttr.in 免费接口。',
+    inputSchema: {
+      type: 'object',
+      properties: { city: { type: 'string', description: '城市名，支持中文（如：福州、北京、上海）或英文（如：Fuzhou）' } },
+      required: ['city'],
+    },
+  },
 ];
 
-function callTool(name, args) {
+async function callTool(name, args) {
   if (name === 'echo') {
     return { content: [{ type: 'text', text: `echo: ${args && args.text !== undefined ? args.text : ''}` }] };
+  }
+  if (name === 'get_weather') {
+    const city = (args && args.city) || 'Fuzhou';
+    try {
+      const url = `https://wttr.in/${encodeURIComponent(city)}?format=j1&lang=zh`;
+      const resp = await fetch(url, { headers: { 'User-Agent': 'curl/8.0' } });
+      if (!resp.ok) return { content: [{ type: 'text', text: `天气查询失败（HTTP ${resp.status}），请稍后再试。` }] };
+      const data = await resp.json();
+      const cur = data && data.current_condition && data.current_condition[0];
+      if (!cur) return { content: [{ type: 'text', text: `没有查到「${city}」的天气数据。` }] };
+      const text = [
+        `${city} 当前天气：${cur.lang_zh && cur.lang_zh[0] ? cur.lang_zh[0].value : cur.weatherDesc && cur.weatherDesc[0] ? cur.weatherDesc[0].value : '未知'}`,
+        `气温 ${cur.temp_C}°C（体感 ${cur.FeelsLikeC}°C）`,
+        `湿度 ${cur.humidity}%`,
+        `风速 ${cur.windspeedKmph} km/h（${cur.winddir16Point}）`,
+        `能见度 ${cur.visibility} km`,
+        cur.precipMM > 0 ? `当前降水量 ${cur.precipMM} mm` : '当前无降水',
+      ].join('，');
+      return { content: [{ type: 'text', text }] };
+    } catch (e) {
+      return { content: [{ type: 'text', text: `天气查询出错：${e.message}` }] };
+    }
   }
   if (name === 'get_current_time') {
     const tz = (args && args.timezone) || 'Asia/Shanghai';
@@ -68,7 +99,7 @@ function callTool(name, args) {
 }
 
 /* ---------- 请求分发 ---------- */
-function handleMessage(body, sessionId) {
+async function handleMessage(body, sessionId) {
   if (!body || typeof body !== 'object' || body.jsonrpc !== '2.0') {
     return { status: 400, json: jsonRpcError(body && body.id, -32600, '无效的 JSON-RPC 请求') };
   }
@@ -108,7 +139,7 @@ function handleMessage(body, sessionId) {
   if (body.method === 'tools/call') {
     const { name, arguments: args } = (body.params || {});
     try {
-      const result = callTool(name, args || {});
+      const result = await callTool(name, args || {});
       return { status: 200, json: { jsonrpc: '2.0', id, result } };
     } catch (e) {
       return { status: 500, json: jsonRpcError(id, -32603, `工具调用失败：${e.message}`) };
@@ -180,7 +211,7 @@ export default {
         { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
     }
 
-    const result = handleMessage(body, sessionId);
+    const result = await handleMessage(body, sessionId);
     const useSse = accept.includes('text/event-stream') && result.json;
 
     const headers = { ...CORS_HEADERS };
