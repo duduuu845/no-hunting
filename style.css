@@ -2323,6 +2323,12 @@ body, .msg-bubble, .chat-view, .ios-text-input, .action-card, .clean-item, .sub-
     border-radius: 14px; border: 0.5px solid var(--border-light);
 }
 .appearance-section-title { font-size: 12.5px; font-weight: 600; color: var(--text-main); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.radius-scroll { display:flex; gap:10px; overflow-x:auto; width:100%; padding:4px 0 6px; scrollbar-width:none; }
+.radius-scroll::-webkit-scrollbar { display:none; }
+.radius-cell { flex-shrink:0; width:96px; display:flex; flex-direction:column; gap:3px; align-items:center; background:var(--bg-page); border:0.5px solid var(--border-light); border-radius:10px; padding:6px 8px; }
+.radius-cell-label { font-size:10px; color:var(--text-sub); }
+.radius-cell-val { font-size:11px; text-align:center; color:var(--text-main); }
+.radius-cell .appearance-range { width:100%; min-width:0; }
 .appearance-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .appearance-label { font-size: 12px; color: var(--text-main); width: 76px; flex-shrink: 0; }
 .appearance-value { font-size: 11px; color: var(--text-sub); width: 34px; text-align: right; flex-shrink: 0; }
@@ -2963,7 +2969,7 @@ select.appearance-select {
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
     overflow: visible; white-space: nowrap; padding: 4px 8px;
     /* 数字瘦长比例（拉长数字：宽度压缩 + 高度拉伸，接近 1:2 的竖长字形） */
-    transform: scale(0.72, 1.25);
+    transform: scale(0.55, 1.6);
     transform-origin: left top;
 }
 .lockscreen-overlay .ls-big-time:focus { -webkit-text-fill-color: #fff; background: rgba(255,255,255,0.12); border-radius: 10px; }

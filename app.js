@@ -1048,6 +1048,8 @@ function openSubModal(id) {
         if (hint) hint.innerText = `当前选项：${wheelOptions.length} 项`;
     }
     if (id === 'page-mystic') renderMysticBaseInfoPreview();
+    if (id === 'page-appearance-setting') renderAppearancePresets();
+    if (id === 'page-doc-analysis') populateDocCharSelect();
 }
 function closeSubModal(id) { document.getElementById(id).classList.remove('open'); }
 
@@ -1064,6 +1066,10 @@ function sanitizeChatText(text) {
         .replace(/\[diary\][\s\S]*?\[\/diary\]/g, '')
         .replace(/\[diary[：:]\s*[^\n]*/g, '')
         .replace(/\[quote[^\]]*\]/gi, '')
+        .replace(/\[引用\][\s\S]*?\[\/引用\]/g, '')
+        .replace(/\[引用\]/g, '')
+        .replace(/\[\/引用\]/g, '')
+        .replace(/\[撤回\]/g, '')
         .trim();
 }
 
@@ -1073,6 +1079,28 @@ function appendBubbleToUI(role, text, timeStr, quoteData, msgId) {
     row.className = `msg-row ${role}`;
     row.dataset.msgId = msgId || ('msg_' + Date.now());
 
+    // AI 主动引用：回复里用 [引用]xxx[/引用] 引用一条消息并针对它回复（必须先于净化，避免标签被清掉）
+    let aiQuote = quoteData || null;
+    if (typeof text === 'string' && text.indexOf('[引用]') !== -1) {
+        const aiQ = text.match(/\[引用\]([\s\S]*?)\[\/引用\]/);
+        if (aiQ) {
+            const qText = aiQ[1].trim();
+            let qSender = appData.contactName || '对方';
+            try {
+                const hist = appData.chatHistory || [];
+                for (let i = hist.length - 1; i >= 0; i--) {
+                    const m = hist[i];
+                    if (m.recalled || typeof m.text !== 'string') continue;
+                    if (m.text.indexOf(qText) !== -1 || qText.indexOf(m.text.slice(0, 20)) !== -1) {
+                        qSender = (m.role === 'user') ? '我' : (m.sender || appData.contactName || '对方');
+                        break;
+                    }
+                }
+            } catch (e) {}
+            aiQuote = { sender: qSender, text: qText.slice(0, 60) };
+            text = text.replace(/\[引用\][\s\S]*?\[\/引用\]/, '').trim();
+        }
+    }
     // 渲染兜底：净化 AI 残留标签（兼容旧历史数据）
     if (typeof text === 'string') text = sanitizeChatText(text);
     // AI 扮演的撤回文本 → 微信样式灰色小字提醒
@@ -1087,8 +1115,8 @@ function appendBubbleToUI(role, text, timeStr, quoteData, msgId) {
     }
 
     let quoteHtml = "";
-    if (quoteData) {
-        quoteHtml = `<div class="in-bubble-quote-bottom">↳ ${quoteData.sender}: ${quoteData.text}</div>`;
+    if (aiQuote) {
+        quoteHtml = `<div class="in-bubble-quote-bottom">↳ ${aiQuote.sender}: ${aiQuote.text}</div>`;
     }
 
     row.innerHTML = `
@@ -1193,6 +1221,8 @@ function triggerQuoteFromPill(btn, e) {
     if (existingQuote) cleanText = cleanText.replace(existingQuote.innerText, '').trim();
 
     currentQuoteData = { sender, text: cleanText.slice(0, 32) };
+    const qpTxt = document.getElementById('quote-preview-text');
+    if (qpTxt) qpTxt.innerText = cleanText.slice(0, 32);
     document.getElementById('quote-preview-bar').style.display = 'flex';
     btn.closest('.bubble-action-pills').classList.remove('active');
     document.getElementById('chat-msg-input').focus();
@@ -1754,7 +1784,8 @@ async function triggerAiReply() {
     }
     systemPrompt += `[每轮可选的即时状态标签]: 在回复末尾，若值得，可以单独一行输出 [status: 此刻的状态心情（2-8字，如：有点困/心情不错/在想你）]；不必每轮都输出。\n`;
     systemPrompt += `[心声标签]: 在回复末尾可单独一行输出 [heart_voice]一句此刻内心独白（不超过20字）[/heart_voice]，用于填充状态气泡旁的“心声”；没有特别想法时可省略。\n`;
-    systemPrompt += `[格式铁律]: 你的回复正文只包含正常的对话内容。禁止用方括号标签模拟撤回、引用、图片、表情等界面操作（撤回与引用是用户在界面上自己点气泡操作的，不需要你用文字扮演）；禁止输出“某某撤回了一条消息”“[引用:]”这类扮演文本；心声与状态只使用上面定义的两个标签，且只能出现在回复末尾。\n\n`;
+    systemPrompt += `[引用与撤回（可选用，界面会自动识别）]: 若你想引用对方刚才某条消息并针对它回复，请在回复开头单独加一行 [引用]那条消息的原话（20字内）[/引用]，系统会把这句话显示成引用框；若你想撤回自己上一条消息，请在回复中单独输出一行 [撤回]，系统会把上一条消息显示为“XX撤回了一条消息”。注意：只能引用对话里真实出现过的话，不要编造；不要用其他方括号符号，也不要直接用文字描述“我撤回了”。\n`;
+    systemPrompt += `[格式铁律]: 你的回复正文只包含正常的对话内容，不允许出现除上面定义标签（心声/状态/引用/撤回）以外的任何方括号或特殊符号；心声与状态只出现在回复末尾。\n\n`;
 
     const currentMemo = localStorage.getItem('sr_memo') || '';
     const memoChanged = currentMemo.trim() !== (appData.lastMemoCommented || '').trim();
@@ -2071,6 +2102,22 @@ async function triggerAiReply() {
 
         // --- 拟人化：一句一句跳出文字气泡 ---
         const rawBubbles = fullReply.split(/\n\s*\n/).map(b => b.trim()).filter(b => b.length > 0);
+        // AI 主动撤回：[撤回] → 撤回 AI 上一条已发消息（微信样式提醒），不显示指令本身
+        if (/\[撤回\]/.test(fullReply)) {
+            try {
+                const hist = appData.chatHistory || [];
+                for (let i = hist.length - 1; i >= 0; i--) {
+                    const m = hist[i];
+                    if (m.role !== 'char' || m.recalled || (m.text && m.text.indexOf('[撤回]') !== -1)) continue;
+                    m.recalled = true;
+                    m.recalledBy = 'char';
+                    const rowEl = document.querySelector(`.msg-row[data-msg-id="${m.id}"]`);
+                    if (rowEl) rowEl.innerHTML = `<div class="recalled-msg-notice">${escapeHtml(appData.contactName || '对方')} 撤回了一条消息</div>`;
+                    break;
+                }
+                persist();
+            } catch (e) {}
+        }
         for (let i = 0; i < rawBubbles.length; i++) {
             statusEl.innerText = "对方正在输入...";
             await sleep(800 + Math.min(rawBubbles[i].length * 20, 1000));
@@ -4499,7 +4546,32 @@ function openPersonaDetailEditor(id) {
         : (pAv ? `<span style="font-size:30px;">${pAv}</span>` : `<span style="width:100%; height:100%; border-radius:50%; background:linear-gradient(135deg,#cbd5e1,#94a3b8); color:#fff; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:600;">${escapeHtml((p.name||'?').slice(0,1))}</span>`);
 
     const activeId = (currentPersonaCategory === 'char') ? activePersonaCharId : activePersonaUserId;
+    // user 身份编辑页显示"设为当前使用身份"按钮
+    const setCurBtn = document.getElementById('btn-set-current-persona');
+    if (setCurBtn) {
+        if (currentPersonaCategory === 'user') {
+            setCurBtn.style.display = 'block';
+            if (activePersonaUserId === id) {
+                setCurBtn.innerText = '✓ 当前使用中';
+                setCurBtn.disabled = true;
+            } else {
+                setCurBtn.innerText = '设为当前使用身份';
+                setCurBtn.disabled = false;
+            }
+        } else {
+            setCurBtn.style.display = 'none';
+        }
+    }
     openSubModal('modal-persona-detail');
+}
+
+function setActivePersonaFromEditor() {
+    if (currentPersonaCategory !== 'user' || !editingPersonaId) return;
+    activePersonaUserId = editingPersonaId;
+    localStorage.setItem('sr_active_user_id', editingPersonaId);
+    const p = appData.personas.user.find(item => item.id === editingPersonaId) || {};
+    openAlert('已将「' + (p.name || '该身份') + '」设为当前使用身份，全局通用。');
+    openPersonaDetailEditor(editingPersonaId);
 }
 
 function promptPresetEmojiAvatar() {
@@ -5786,6 +5858,8 @@ function setAppearanceRadius(side, corner, val) {
     appearance[key][corner] = parseFloat(val) || 0;
     saveAppearance();
     applyAppearance();
+    const valEl = document.getElementById('val-' + (side === 'user' ? 'ur' : 'cr') + '-' + corner);
+    if (valEl) valEl.innerText = val;
 }
 
 // 选择预设主题色
@@ -5795,6 +5869,55 @@ function pickThemeColor(color) {
         const picker = document.getElementById('cfg-user-bubble');
         if (picker) picker.value = color;
     }
+}
+
+// ==================== 外观预设 ====================
+function getAppearancePresets() {
+    try { return JSON.parse(localStorage.getItem('sr_appearance_presets') || '[]'); } catch(e) { return []; }
+}
+function saveAppearancePresets(list) {
+    localStorage.setItem('sr_appearance_presets', JSON.stringify(list));
+}
+function saveAppearancePreset() {
+    const name = (document.getElementById('preset-name-input') ? document.getElementById('preset-name-input').value : '').trim();
+    if (!name) { openAlert('请输入预设名称'); return; }
+    const list = getAppearancePresets();
+    list.push({ name: name, data: JSON.parse(JSON.stringify(appearance)), time: Date.now() });
+    saveAppearancePresets(list);
+    const inp = document.getElementById('preset-name-input');
+    if (inp) inp.value = '';
+    renderAppearancePresets();
+    openAlert('已保存外观预设「' + name + '」');
+}
+function applyAppearancePreset(idx) {
+    const list = getAppearancePresets();
+    const p = list[idx];
+    if (!p || !p.data) return;
+    Object.keys(p.data).forEach(k => { appearance[k] = p.data[k]; });
+    localStorage.setItem('sr_appearance', JSON.stringify(appearance));
+    applyAppearance();
+    openAlert('已应用外观预设「' + p.name + '」');
+}
+function deleteAppearancePreset(idx) {
+    const list = getAppearancePresets();
+    list.splice(idx, 1);
+    saveAppearancePresets(list);
+    renderAppearancePresets();
+}
+function renderAppearancePresets() {
+    const box = document.getElementById('appearance-preset-list');
+    if (!box) return;
+    const list = getAppearancePresets();
+    if (!list.length) {
+        box.innerHTML = '<div style="font-size:11px; color:var(--text-sub);">还没有预设，调好外观后点「保存当前」即可。</div>';
+        return;
+    }
+    box.innerHTML = list.map((p, i) => `
+        <div style="display:flex; align-items:center; gap:6px; background:var(--bg-page); border-radius:8px; padding:6px 8px;">
+            <span style="flex:1; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.name)}</span>
+            <button class="btn-action secondary small" onclick="applyAppearancePreset(${i})">应用</button>
+            <button class="btn-action danger small" style="padding:2px 8px;" onclick="deleteAppearancePreset(${i})">✕</button>
+        </div>`).join('');
 }
 
 // 恢复默认外观
@@ -5969,7 +6092,7 @@ function doExportAll() {
             charMemo: collectPrefixedKeys('sr_char_daily_memo_'),
         },
     };
-    downloadJson(JSON.stringify(all), 'pocket_phone_full_backup.json');
+    downloadJson(JSON.stringify(all), 'hunting_full_backup.json');
     closeAppDialog();
     openAlert('已导出全部数据');
 }
@@ -5979,14 +6102,14 @@ function exportModule(module) {
     let data = {}, filename = '';
     const today = new Date().toISOString().slice(0,10);
     switch (module) {
-        case 'contacts': data = appData.contacts || []; filename = 'contacts.json'; break;
-        case 'personas': data = appData.personas || {}; filename = 'personas.json'; break;
-        case 'worldbooks': data = { jailbreaks: appData.jailbreaks || [], worldbooks: appData.worldbooks || [], memories: appData.memories || [], wbCats: appData.wbCats || [] }; filename = 'worldbooks.json'; break;
-        case 'stickers': data = appData.stickers || {}; filename = 'stickers.json'; break;
-        case 'schedules': data = { journals: calState.journals || {}, schedules: calState.schedules || [], todos: calState.todos || [] }; filename = 'schedules.json'; break;
-        case 'appearance': data = (function(){ try { return JSON.parse(localStorage.getItem('sr_appearance') || '{}'); } catch(e){ return {}; } })(); filename = 'appearance.json'; break;
-        case 'mcp': data = (function(){ try { return JSON.parse(localStorage.getItem('sr_mcp_servers') || '[]'); } catch(e){ return []; } })(); filename = 'mcp.json'; break;
-        case 'mystic': data = { archives: (function(){ try { return JSON.parse(localStorage.getItem('sr_mystic_archives') || '[]'); } catch(e){ return []; } })(), base: (function(){ try { return JSON.parse(localStorage.getItem('sr_mystic_base') || '{}'); } catch(e){ return {}; } })() }; filename = 'mystic.json'; break;
+        case 'contacts': data = appData.contacts || []; filename = 'hunting_contacts.json'; break;
+        case 'personas': data = appData.personas || {}; filename = 'hunting_personas.json'; break;
+        case 'worldbooks': data = { jailbreaks: appData.jailbreaks || [], worldbooks: appData.worldbooks || [], memories: appData.memories || [], wbCats: appData.wbCats || [] }; filename = 'hunting_worldbooks.json'; break;
+        case 'stickers': data = appData.stickers || {}; filename = 'hunting_stickers.json'; break;
+        case 'schedules': data = { journals: calState.journals || {}, schedules: calState.schedules || [], todos: calState.todos || [] }; filename = 'hunting_schedules.json'; break;
+        case 'appearance': data = (function(){ try { return JSON.parse(localStorage.getItem('sr_appearance') || '{}'); } catch(e){ return {}; } })(); filename = 'hunting_appearance.json'; break;
+        case 'mcp': data = (function(){ try { return JSON.parse(localStorage.getItem('sr_mcp_servers') || '[]'); } catch(e){ return []; } })(); filename = 'hunting_mcp.json'; break;
+        case 'mystic': data = { archives: (function(){ try { return JSON.parse(localStorage.getItem('sr_mystic_archives') || '[]'); } catch(e){ return []; } })(), base: (function(){ try { return JSON.parse(localStorage.getItem('sr_mystic_base') || '{}'); } catch(e){ return {}; } })() }; filename = 'hunting_mystic.json'; break;
     }
     downloadJson(JSON.stringify(data, null, 2), filename);
     closeAppDialog();

@@ -19,7 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 
     <!-- 引入独立皮肤文件 -->
-    <link rel="stylesheet" href="style.css?v=21">
+    <link rel="stylesheet" href="style.css?v=23">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
@@ -818,6 +818,7 @@
             </div>
 
             <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
+                <button class="btn-action" id="btn-set-current-persona" onclick="setActivePersonaFromEditor()" style="display:none;">设为当前使用身份</button>
                 <button class="btn-action danger" id="btn-del-persona" onclick="deleteCurrentPersonaEntry()">删除该身份</button>
             </div>
         </div>
@@ -1240,7 +1241,7 @@
             <input type="file" id="doc-analysis-file" style="display:none;" accept=".txt,.md,.csv,.json,.docx,.doc,.pdf" onchange="handleDocAnalysisFile(this)">
             <button class="btn-action secondary small" onclick="document.getElementById('doc-analysis-file').click()">📂 选择文件</button>
             <div id="doc-analysis-filename" style="font-size:11px; color:var(--text-sub);">未选择文件</div>
-            <select class="dialog-input" id="doc-analysis-char" style="font-size:12px;" onfocus="populateDocCharSelect()"></select>
+            <select class="dialog-input" id="doc-analysis-char" style="font-size:12px;" onchange="docAnalysisCharId=this.value"></select>
             <label style="font-size:11px; color:var(--text-sub); margin-top:6px;">你想让 TA 帮你做什么？</label>
             <textarea class="dialog-input" id="doc-analysis-prompt" style="height:70px; line-height:1.4;" placeholder="如：帮我总结要点、制定学习计划、做出待办表格..."></textarea>
             <button class="btn-action" onclick="runDocAnalysis()">✨ 开始分析</button>
@@ -1507,19 +1508,19 @@
                     <input type="range" class="appearance-range" min="20" max="100" step="1" id="cfg-bubble-opacity" value="100" oninput="setAppearance('bubbleOpacity', this.value)">
                     <span class="appearance-value" id="val-bubble-opacity">100</span>
                 </div>
-                <div style="font-size:11px; color:var(--text-sub); margin-top:8px;">我方气泡四角圆角（左上/右上/左下/右下）</div>
-                <div class="appearance-row"><span class="appearance-label">我方 4角</span>
-                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-ur-tl" value="18" oninput="setAppearanceRadius('user','tl',this.value)">
-                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-ur-tr" value="18" oninput="setAppearanceRadius('user','tr',this.value)">
-                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-ur-bl" value="18" oninput="setAppearanceRadius('user','bl',this.value)">
-                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-ur-br" value="6" oninput="setAppearanceRadius('user','br',this.value)">
+                <div style="font-size:11px; color:var(--text-sub); margin-top:8px;">我方气泡四角圆角（可左右滑动查看四角）</div>
+                <div class="radius-scroll">
+                    <div class="radius-cell"><span class="radius-cell-label">左上</span><input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-ur-tl" value="18" oninput="setAppearanceRadius('user','tl',this.value)"><span class="radius-cell-val" id="val-ur-tl">18</span></div>
+                    <div class="radius-cell"><span class="radius-cell-label">右上</span><input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-ur-tr" value="18" oninput="setAppearanceRadius('user','tr',this.value)"><span class="radius-cell-val" id="val-ur-tr">18</span></div>
+                    <div class="radius-cell"><span class="radius-cell-label">左下</span><input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-ur-bl" value="18" oninput="setAppearanceRadius('user','bl',this.value)"><span class="radius-cell-val" id="val-ur-bl">18</span></div>
+                    <div class="radius-cell"><span class="radius-cell-label">右下</span><input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-ur-br" value="6" oninput="setAppearanceRadius('user','br',this.value)"><span class="radius-cell-val" id="val-ur-br">6</span></div>
                 </div>
-                <div style="font-size:11px; color:var(--text-sub); margin-top:4px;">对方气泡四角圆角（左上/右上/左下/右下）</div>
-                <div class="appearance-row"><span class="appearance-label">对方 4角</span>
-                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-cr-tl" value="18" oninput="setAppearanceRadius('char','tl',this.value)">
-                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-cr-tr" value="18" oninput="setAppearanceRadius('char','tr',this.value)">
-                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-cr-bl" value="6" oninput="setAppearanceRadius('char','bl',this.value)">
-                    <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-cr-br" value="18" oninput="setAppearanceRadius('char','br',this.value)">
+                <div style="font-size:11px; color:var(--text-sub); margin-top:6px;">对方气泡四角圆角（可左右滑动查看四角）</div>
+                <div class="radius-scroll">
+                    <div class="radius-cell"><span class="radius-cell-label">左上</span><input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-cr-tl" value="18" oninput="setAppearanceRadius('char','tl',this.value)"><span class="radius-cell-val" id="val-cr-tl">18</span></div>
+                    <div class="radius-cell"><span class="radius-cell-label">右上</span><input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-cr-tr" value="18" oninput="setAppearanceRadius('char','tr',this.value)"><span class="radius-cell-val" id="val-cr-tr">18</span></div>
+                    <div class="radius-cell"><span class="radius-cell-label">左下</span><input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-cr-bl" value="6" oninput="setAppearanceRadius('char','bl',this.value)"><span class="radius-cell-val" id="val-cr-bl">6</span></div>
+                    <div class="radius-cell"><span class="radius-cell-label">右下</span><input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-cr-br" value="18" oninput="setAppearanceRadius('char','br',this.value)"><span class="radius-cell-val" id="val-cr-br">18</span></div>
                 </div>
             </div>
 
@@ -1532,6 +1533,15 @@
                     <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-glass-strength" value="0" oninput="setAppearance('glassStrength', this.value)" style="flex:1;">
                     <span class="appearance-value" id="val-glass-strength">0</span>
                 </div>
+            </div>
+
+            <div class="action-card" style="padding:12px 14px; margin-top:14px;">
+                <div style="font-size:13px; font-weight:600; margin-bottom:6px;">🎨 外观预设</div>
+                <div style="display:flex; gap:6px; margin-bottom:8px;">
+                    <input type="text" id="preset-name-input" class="dialog-input" placeholder="预设名称（如：夜间磨砂蓝）" style="flex:1; font-size:12px; min-width:0;">
+                    <button class="btn-action secondary small" onclick="saveAppearancePreset()">保存当前</button>
+                </div>
+                <div id="appearance-preset-list" style="display:flex; flex-direction:column; gap:6px;"></div>
             </div>
 
             <div class="action-card" style="padding:12px 14px; margin-top:14px;">
@@ -1603,7 +1613,7 @@
     </div>
 </div>
 
-<script src="app.js?v=23"></script>
+<script src="app.js?v=25"></script>
 <script>
 // 物理直连：手账存盘保存绝对通道 (绝不被外部中断)
 function saveJournalEntry() {
