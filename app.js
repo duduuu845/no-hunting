@@ -520,11 +520,18 @@ function updateChatHeaderUI() {
     const detailName = document.getElementById('detail-edit-name');
     if (detailName) detailName.value = appData.contactName;
     const detailReal = document.getElementById('detail-real-name');
-    if (detailReal) detailReal.innerText = appData.charRealName || appData.contactName;
+    if (detailReal) {
+        const activeForDetail = getActiveContact();
+        const personaD = getCharPersona(activeForDetail);
+        detailReal.innerText = (personaD && personaD.name) || appData.charRealName || appData.contactName;
+    }
     const detailAvatar = document.getElementById('detail-avatar');
     if (detailAvatar) {
         const active = getActiveContact();
-        detailAvatar.innerHTML = (active && active.avatar) ? active.avatar : '🐺';
+        const personaA = getCharPersona(active);
+        const av2 = (personaA && personaA.avatar) || (active && active.avatar) || '🐺';
+        detailAvatar.innerHTML = (typeof av2 === 'string' && (av2.startsWith('http') || av2.startsWith('data:')))
+            ? `<img class="avatar-img" src="${escapeHtml(av2)}" alt="" style="width:60px; height:60px; border-radius:50%; object-fit:cover;">` : av2;
     }
 }
 
@@ -965,19 +972,20 @@ function renderMemoCharBlock() {
         const comment = localStorage.getItem('sr_memo_comment_' + c.id) || '';
         const dailyMemo = localStorage.getItem('sr_char_daily_memo_' + c.id) || '';
         const dailyDate = localStorage.getItem('sr_char_daily_date_' + c.id) || '';
-        const dailyHtml = (dailyDate === today && dailyMemo)
-            ? `<div class="char-daily-memo">📅 今天 ${escapeHtml(c.name || 'TA')} 想记下：${escapeHtml(dailyMemo)}</div>` : '';
+        // 备忘录（当天生成的）直接作为正文显示，不需要"今天XX想记下"前缀
+        const hasDaily = dailyDate === today && dailyMemo;
+        const bodyText = hasDaily ? dailyMemo : (comment || '还没聊过天，TA 还没留下什么。');
+        const persona = getCharPersona(c) || {};
         return `
             <div class="pin-note pin-note-char">
                 <div class="pin-note-head">
                     <span class="pin-thumb">📌</span>
-                    <span style="font-size:11px; color:var(--text-sub);">${escapeHtml(c.name || 'TA')} 的小纸条</span>
-                    ${renderAvatarHtml(c.avatar, 'pin-avatar char-pin-avatar', '🐺')}
+                    <span style="font-size:11px; color:var(--text-sub);">${escapeHtml(persona.name || c.name || 'TA')} 的小纸条</span>
+                    ${renderAvatarHtml(persona.avatar || c.avatar, 'pin-avatar char-pin-avatar', '🐺')}
                 </div>
                 <div class="memo-char-comment" style="font-size:13px; color:var(--text-sub); line-height:1.45; margin-top:4px;">
-                    ${comment ? escapeHtml(comment) : '还没聊过天，TA 还没留下什么。'}
+                    ${escapeHtml(bodyText)}
                 </div>
-                ${dailyHtml}
             </div>`;
     }).join('');
 }
@@ -1084,7 +1092,7 @@ function appendBubbleToUI(role, text, timeStr, quoteData, msgId) {
     if (typeof text === 'string' && text.indexOf('[引用]') !== -1) {
         const aiQ = text.match(/\[引用\]([\s\S]*?)\[\/引用\]/);
         if (aiQ) {
-            const qText = aiQ[1].trim();
+            const qText = (aiQ[1] || '').trim();
             let qSender = appData.contactName || '对方';
             try {
                 const hist = appData.chatHistory || [];
@@ -1097,8 +1105,8 @@ function appendBubbleToUI(role, text, timeStr, quoteData, msgId) {
                     }
                 }
             } catch (e) {}
-            aiQuote = { sender: qSender, text: qText.slice(0, 60) };
-            text = text.replace(/\[引用\][\s\S]*?\[\/引用\]/, '').trim();
+            aiQuote = { sender: qSender, text: (qText.slice(0, 60) || '（引用了一条消息）') };
+            text = text.replace(/\[引用\][\s\S]*?\[\/引用\]/g, '').trim();
         }
     }
     // 渲染兜底：净化 AI 残留标签（兼容旧历史数据）
@@ -1220,7 +1228,7 @@ function triggerQuoteFromPill(btn, e) {
     const existingQuote = bubble.querySelector('.in-bubble-quote-top') || bubble.querySelector('.in-bubble-quote-bottom');
     if (existingQuote) cleanText = cleanText.replace(existingQuote.innerText, '').trim();
 
-    currentQuoteData = { sender, text: cleanText.slice(0, 32) };
+    currentQuoteData = { sender, text: (cleanText.slice(0, 32) || '（引用了一条消息）') };
     const qpTxt = document.getElementById('quote-preview-text');
     if (qpTxt) qpTxt.innerText = cleanText.slice(0, 32);
     document.getElementById('quote-preview-bar').style.display = 'flex';
@@ -1739,11 +1747,14 @@ async function triggerAiReply() {
         groupMembers = getGroupMembers(activeContactC);
         charObj = { name: activeContactC.name || '群聊', prompt: groupMembers.filter(m => m.role === 'char').map(m => `${m.name}：${m.prompt || '(未填写人设)'}`).join('\n') };
     } else if (activeContactC) {
+        const personaC = getCharPersona(activeContactC);
         let prompt = activeContactC.prompt || '';
-        if (!prompt && appData.personas && appData.personas.char && appData.personas.char.length) {
+        if (personaC && personaC.prompt) {
+            prompt = personaC.prompt;
+        } else if (!prompt && appData.personas && appData.personas.char && appData.personas.char.length) {
             prompt = (appData.personas.char.find(c => c.id === activePersonaCharId) || appData.personas.char[0]).prompt || '';
         }
-        charObj = { name: activeContactC.name || 'AI 伴侣', prompt: prompt };
+        charObj = { name: (personaC && personaC.name) || activeContactC.name || 'AI 伴侣', prompt: prompt };
     } else {
         charObj = (appData.personas.char.find(c => c.id === activePersonaCharId))
                || (appData.personas.char && appData.personas.char[0])
@@ -1988,10 +1999,11 @@ async function triggerAiReply() {
             // 没给 status 标签时，用回复内容推断一个轻量心情（取首句前 6 字）
             const activeC = getActiveContact();
             if (activeC && fullReply.trim()) {
-                const firstLine = fullReply.trim().split(/\n/)[0].slice(0, 12)
-                    .replace(/\[(?:引用|heart_voice|status|memo_comment|image|image_with_user|video_call|diary|tool_call)[^\]]*\]/gi, '')
-                    .replace(/^[>><<·:：\s]+/, '').trim();
-                activeC.status = firstLine.slice(0, 6) || '';
+                // 状态只认 [status: 此刻心情] 标签；没有就不改状态（避免把回复第一句话填进状态栏）
+                const statusMatch = fullReply.match(/\[status:\s*([^\]]+)\]/i);
+                if (statusMatch) {
+                    activeC.status = statusMatch[1].trim().replace(/[>><<\[\]]/g, '').slice(0, 8);
+                }
             }
         }
         updateChatHeaderUI();
@@ -3066,10 +3078,17 @@ function deleteContact(contactId) {
 function openContactDetailPage() {
     closeAllPopups();
     const active = getActiveContact();
+    const persona = getCharPersona(active);
     document.getElementById('detail-edit-name').value = appData.contactName;
-    document.getElementById('detail-real-name').innerText = appData.charRealName || appData.contactName;
+    // 本名：档案库名字优先（用户要求联系人本名与人物档案库一致）
+    const realName = (persona && persona.name) || appData.charRealName || appData.contactName;
+    document.getElementById('detail-real-name').innerText = realName;
     const avatarEl = document.getElementById('detail-avatar');
-    if (avatarEl) avatarEl.innerHTML = (active && active.avatar) ? active.avatar : '🐺';
+    if (avatarEl) {
+        const av = (persona && persona.avatar) || (active && active.avatar) || '🐺';
+        avatarEl.innerHTML = (typeof av === 'string' && (av.startsWith('http') || av.startsWith('data:')))
+            ? `<img class="avatar-img" src="${escapeHtml(av)}" alt="" style="width:60px; height:60px; border-radius:50%; object-fit:cover;">` : av;
+    }
     openSubModal('page-contact-detail');
 }
 function closeContactDetailPage() { closeSubModal('page-contact-detail'); }
@@ -4656,6 +4675,17 @@ function savePersonaDetail() {
     renderContactsList();
     closeSubModal('modal-persona-detail');
     openAlert('人物档案已保存！');
+}
+
+// 取联系人对应的档案库 char（id 优先，其次 name/本名匹配；匹配不到返回 null）
+function getCharPersona(c) {
+    try {
+        if (!c || c.type === 'group') return null;
+        const personas = (appData.personas && appData.personas.char) || [];
+        return personas.find(p => p.id === c.id)
+            || personas.find(p => p.name === c.name)
+            || personas.find(p => p.name === c.realName) || null;
+    } catch (e) { return null; }
 }
 
 // 全局头像同步：以人物档案库为准，把每个 char 的头像同步到联系人（导入/加载后调用一次）
