@@ -421,6 +421,46 @@ function confirmClearAllData() {
 }
 
 // ==================== 多联系人体系 ====================
+// 联系人独立记忆：核心记忆 / 回忆录 / 日记按联系人隔离存储（key 后缀联系人 id）
+function loadContactScopedData(contactId) {
+    const id = contactId || '';
+    try { const v = JSON.parse(localStorage.getItem('sr_core_mems_' + id) || '[]'); appData.coreMemories = Array.isArray(v) ? v : []; }
+    catch (e) { appData.coreMemories = []; }
+    try {
+        const p = JSON.parse(localStorage.getItem('sr_memories_' + id) || '{}') || {};
+        appData.memories = {
+            long: Array.isArray(p.long) ? p.long : [],
+            medium: Array.isArray(p.medium) ? p.medium : [],
+            short: Array.isArray(p.short) ? p.short : []
+        };
+    } catch (e) { appData.memories = { long: [], medium: [], short: [] }; }
+    try { const v = JSON.parse(localStorage.getItem('sr_diaries_' + id) || '[]'); appData.diaries = Array.isArray(v) ? v : []; }
+    catch (e) { appData.diaries = []; }
+}
+function saveContactScopedData(contactId) {
+    const id = contactId || '';
+    localStorage.setItem('sr_core_mems_' + id, JSON.stringify(appData.coreMemories));
+    localStorage.setItem('sr_memories_' + id, JSON.stringify(appData.memories));
+    localStorage.setItem('sr_diaries_' + id, JSON.stringify(appData.diaries));
+}
+function migrateLegacyScopedData() {
+    // 一次性迁移：旧版全局记忆数据归到第一个联系人，随后彻底按联系人隔离
+    if (!Array.isArray(appData.contacts) || !appData.contacts.length) return;
+    const first = appData.contacts[0];
+    const pairs = [
+        ['sr_core_mems', 'sr_core_mems_', '[]'],
+        ['sr_memories', 'sr_memories_', '{}'],
+        ['sr_diaries', 'sr_diaries_', '[]']
+    ];
+    pairs.forEach(function (pair) {
+        const oldKey = pair[0], newKey = pair[1] + first.id;
+        if (!localStorage.getItem(newKey) && localStorage.getItem(oldKey)) {
+            localStorage.setItem(newKey, localStorage.getItem(oldKey));
+        }
+        localStorage.removeItem(oldKey);
+    });
+}
+
 // 兼容旧版"单联系人"数据：把旧的聊天记录 + 联系人名迁移成第一个联系人。
 // 全新用户保持干净（contacts = []），由用户自行添加联系人。
 function initContacts() {
@@ -433,9 +473,8 @@ function initContacts() {
             appData.contactName = active.name || '新朋友';
             appData.charRealName = active.realName || active.name || '';
         }
-        return;
-    }
-    const oldHistory = Array.isArray(appData.chatHistory) ? appData.chatHistory : [];
+    } else {
+        const oldHistory = Array.isArray(appData.chatHistory) ? appData.chatHistory : [];
     const oldName = localStorage.getItem('sr_c_name') || '';
     const charPersona = (appData.personas && appData.personas.char && appData.personas.char[0]) || {};
     let avatar = '🐺';
@@ -465,6 +504,10 @@ function initContacts() {
         appData.contacts = [];
         appData.activeContactId = '';
     }
+    }
+    // 迁移旧全局记忆 → 第一个联系人，并按当前联系人加载独立记忆
+    migrateLegacyScopedData();
+    loadContactScopedData(appData.activeContactId);
 }
 
 // 当前会话对应的联系人（无联系人时返回 null）
@@ -480,11 +523,13 @@ function switchContact(contactId) {
     if (prev && prev.id !== contactId) {
         prev.chatHistory = appData.chatHistory;
         prev.lastActive = Date.now();
+        saveContactScopedData(prev.id);   // 把当前联系人的记忆快照存回去
     }
     const target = appData.contacts.find(c => c.id === contactId);
     if (!target) { openAlert('联系人不存在'); return; }
     appData.activeContactId = target.id;
     appData.chatHistory = Array.isArray(target.chatHistory) ? target.chatHistory : [];
+    loadContactScopedData(target.id);     // 载入目标联系人独立记忆（新联系人为空）
     appData.contactName = target.name || '新朋友';
     appData.charRealName = target.realName || target.name || '';
     target.unread = 0;
@@ -577,10 +622,8 @@ function persist() {
     localStorage.setItem('sr_jailbreaks', JSON.stringify(appData.jailbreaks));
     localStorage.setItem('sr_wb_cats', JSON.stringify(appData.worldbookCategories));
     localStorage.setItem('sr_worldbooks', JSON.stringify(appData.worldbooks));
-    localStorage.setItem('sr_memories', JSON.stringify(appData.memories));
     localStorage.setItem('sr_c_name', appData.contactName);
-    localStorage.setItem('sr_diaries', JSON.stringify(appData.diaries));
-    localStorage.setItem('sr_core_mems', JSON.stringify(appData.coreMemories));
+    if (activeC) saveContactScopedData(activeC.id);  // 记忆按当前联系人独立保存
     localStorage.setItem('sr_favorites', JSON.stringify(appData.favorites));
     localStorage.setItem('sr_schedules', JSON.stringify(appData.schedules));
     localStorage.setItem('sr_bound_wb_ids', JSON.stringify(appData.boundWbIds));
