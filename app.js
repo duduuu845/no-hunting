@@ -800,6 +800,25 @@ function updateLockWidgets() {
     } catch (e) {}
 }
 
+// 锁屏点击分发：点顶部言文字只编辑（不触发解锁）；其他区域才解锁
+function lockTap(e) {
+    if (e && e.target && e.target.classList && e.target.classList.contains('ls-top-quote')) {
+        e.target.focus();
+        return;
+    }
+    unlockScreen();
+}
+// 言文字持久化：blur 时保存，下次打开恢复
+function saveLockQuote() {
+    const q = document.querySelector('.ls-top-quote');
+    if (q) localStorage.setItem('sr_lock_quote', q.innerText.trim());
+}
+function loadLockQuote() {
+    const q = document.querySelector('.ls-top-quote');
+    const saved = localStorage.getItem('sr_lock_quote');
+    if (q && saved) q.innerText = saved;
+}
+
 function unlockScreen() {
     const lockEl = document.getElementById('lockscreen');
     if (lockEl) lockEl.classList.add('unlocked');
@@ -1036,11 +1055,36 @@ function closeSubModal(id) { document.getElementById(id).classList.remove('open'
 let currentQuoteData = null;
 let clickTimer = null;
 
+function sanitizeChatText(text) {
+    if (typeof text !== 'string') return text;
+    return text
+        .replace(/\[heart_voice\][\s\S]*?\[\/heart_voice\]/g, '')
+        .replace(/\[heart_voice:\s*[^\]]*\]/g, '')
+        .replace(/\[status:\s*[^\]]*\]/g, '')
+        .replace(/\[diary\][\s\S]*?\[\/diary\]/g, '')
+        .replace(/\[diary[：:]\s*[^\n]*/g, '')
+        .replace(/\[quote[^\]]*\]/gi, '')
+        .trim();
+}
+
 function appendBubbleToUI(role, text, timeStr, quoteData, msgId) {
     const chatView = document.getElementById('view-chat');
     const row = document.createElement('div');
     row.className = `msg-row ${role}`;
     row.dataset.msgId = msgId || ('msg_' + Date.now());
+
+    // 渲染兜底：净化 AI 残留标签（兼容旧历史数据）
+    if (typeof text === 'string') text = sanitizeChatText(text);
+    // AI 扮演的撤回文本 → 微信样式灰色小字提醒
+    const recallTextMatch = text && text.match(/^\[?([^\[\]\n]{1,20}撤回了一条消息)\]?$/);
+    if (recallTextMatch) {
+        const notice = document.createElement('div');
+        notice.className = 'recalled-msg-notice';
+        notice.innerText = recallTextMatch[1];
+        chatView.appendChild(notice);
+        scrollChatToBottom();
+        return;
+    }
 
     let quoteHtml = "";
     if (quoteData) {
@@ -1709,7 +1753,8 @@ async function triggerAiReply() {
         systemPrompt += `[随手备忘]:\n${appData.memories.short.slice(-5).map(s => s.content).join('\n')}\n\n`;
     }
     systemPrompt += `[每轮可选的即时状态标签]: 在回复末尾，若值得，可以单独一行输出 [status: 此刻的状态心情（2-8字，如：有点困/心情不错/在想你）]；不必每轮都输出。\n`;
-    systemPrompt += `[心声标签]: 在回复末尾可单独一行输出 [heart_voice: 一句此刻内心独白（不超过20字）]，用于填充状态气泡旁的“心声”；没有特别想法时可省略。\n\n`;
+    systemPrompt += `[心声标签]: 在回复末尾可单独一行输出 [heart_voice]一句此刻内心独白（不超过20字）[/heart_voice]，用于填充状态气泡旁的“心声”；没有特别想法时可省略。\n`;
+    systemPrompt += `[格式铁律]: 你的回复正文只包含正常的对话内容。禁止用方括号标签模拟撤回、引用、图片、表情等界面操作（撤回与引用是用户在界面上自己点气泡操作的，不需要你用文字扮演）；禁止输出“某某撤回了一条消息”“[引用:]”这类扮演文本；心声与状态只使用上面定义的两个标签，且只能出现在回复末尾。\n\n`;
 
     const currentMemo = localStorage.getItem('sr_memo') || '';
     const memoChanged = currentMemo.trim() !== (appData.lastMemoCommented || '').trim();
@@ -1886,13 +1931,16 @@ async function triggerAiReply() {
         }
 
         // --- 提取心声（存到当前联系人 + 全局兜底） ---
-        const hvMatch = fullReply.match(/\[heart_voice\]([\s\S]*?)\[\/heart_voice\]/);
+        const hvMatch = fullReply.match(/\[heart_voice\]([\s\S]*?)\[\/heart_voice\]|\[heart_voice:\s*([^\]]+)\]/);
         if (hvMatch) {
-            appData.heartVoice = hvMatch[1].trim();
-            const activeC = getActiveContact();
-            if (activeC) activeC.heartVoice = appData.heartVoice;
-            localStorage.setItem('sr_heart_voice', appData.heartVoice);
-            fullReply = fullReply.replace(/\[heart_voice\][\s\S]*?\[\/heart_voice\]/, '').trim();
+            const hvText = (hvMatch[1] !== undefined ? hvMatch[1] : hvMatch[2]).trim();
+            if (hvText) {
+                appData.heartVoice = hvText;
+                const activeC = getActiveContact();
+                if (activeC) activeC.heartVoice = hvText;
+                localStorage.setItem('sr_heart_voice', hvText);
+            }
+            fullReply = fullReply.replace(/\[heart_voice\][\s\S]*?\[\/heart_voice\]|\[heart_voice:\s*[^\]]*\]/g, '').trim();
         }
         // --- 提取状态·心情（每轮更新） ---
         const stMatch = fullReply.match(/\[status:\s*([^\]]+)\]/);
@@ -4109,6 +4157,7 @@ window.onload = function() {
 
     updateLockClock();
     setInterval(updateLockClock, 10000);
+    loadLockQuote();
 
     const headerNameEl = document.getElementById('header-contact-name');
     if (headerNameEl) headerNameEl.innerText = appData.contactName;
@@ -5846,22 +5895,80 @@ function clearLockBg() {
 
 // ==================== 导出/导入 ====================
 // 导出全部数据（JSON 全量）
+function collectPrefixedKeys(prefix) {
+    const out = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(prefix)) {
+            let v = null;
+            try { v = JSON.parse(localStorage.getItem(k)); } catch(e) { v = localStorage.getItem(k); }
+            out.push({ key: k, value: v });
+        }
+    }
+    return out;
+}
+function collectSingleKey(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch(e) { return fallback; }
+}
+
+// 导出全部数据（JSON 全量：初始化以外的所有新增内容全部打包）
 function doExportAll() {
     const all = {
-        version: 3,
+        version: 4,
         exportTime: new Date().toISOString(),
         appData: JSON.parse(JSON.stringify(appData)),
-        calendar: JSON.parse(JSON.stringify(calState.journals || {})),
-        schedules: JSON.parse(JSON.stringify(calState.schedules || [])),
-        todos: JSON.parse(JSON.stringify(calState.todos || [])),
+        calendar: {
+            journals: JSON.parse(JSON.stringify(calState.journals || [])),
+            schedules: JSON.parse(JSON.stringify(calState.schedules || [])),
+            todos: JSON.parse(JSON.stringify(calState.todos || [])),
+            wheelOptions: collectSingleKey('sr_wheel_options', []),
+        },
         anniversaries: loadAnniversaries(),
-        mysticArchives: (function(){ try { return JSON.parse(localStorage.getItem('sr_mystic_archives') || '[]'); } catch(e){ return []; } })(),
-        mysticBase: (function(){ try { return JSON.parse(localStorage.getItem('sr_mystic_base') || '{}'); } catch(e){ return {}; } })(),
-        memoChars: (function(){ try { return JSON.parse(localStorage.getItem('sr_memo_chars') || '[]'); } catch(e){ return []; } })(),
-        appearance: (function(){ try { return JSON.parse(localStorage.getItem('sr_appearance') || '{}'); } catch(e){ return {}; } })(),
-        misc: {}
+        anniversaryPinned: collectSingleKey('sr_anniversary_pinned', null),
+        worldData: (function(){ try { return JSON.parse(JSON.stringify(worldData)); } catch(e){ return {}; } })(),
+        fanwai: {
+            boundWbIds: (fanwaiState.boundWbIds || []),
+            novels: (fanwaiState.novels || []),
+            endpoint: localStorage.getItem('sr_fanwai_endpoint') || '',
+            key: localStorage.getItem('sr_fanwai_key') || '',
+            model: localStorage.getItem('sr_fanwai_model') || '',
+        },
+        mysticArchives: collectSingleKey('sr_mystic_archives', []),
+        mysticBase: collectSingleKey('sr_mystic_base', {}),
+        memoChars: collectSingleKey('sr_memo_chars', []),
+        memo: localStorage.getItem('sr_memo') || '',
+        appearance: collectSingleKey('sr_appearance', {}),
+        mcp: collectSingleKey('sr_mcp_servers', []),
+        boundWbIds: collectSingleKey('sr_bound_wb_ids', []),
+        lockBg: localStorage.getItem('sr_lock_bg') || '',
+        lockQuote: localStorage.getItem('sr_lock_quote') || '',
+        dark: localStorage.getItem('sr_dark') === 'true',
+        activeIds: {
+            charId: localStorage.getItem('sr_active_char_id') || '',
+            userId: localStorage.getItem('sr_active_user_id') || '',
+            contact: localStorage.getItem('sr_active_contact') || '',
+        },
+        lastUserPhoto: {
+            data: localStorage.getItem('sr_last_user_photo') || '',
+            key: localStorage.getItem('sr_last_user_photo_key') || '',
+        },
+        lastTs: localStorage.getItem('sr_last_ts') || '',
+        lastMemoCommented: localStorage.getItem('sr_last_memo_commented') || '',
+        lastDiaryMsgCount: localStorage.getItem('sr_last_diary_msg_count') || '0',
+        pomoWarehouse: collectSingleKey('sr_pomo_warehouse', []),
+        auditLogs: collectSingleKey('sr_audit_logs', []),
+        imgApi: {
+            endpoint: localStorage.getItem('sr_img_endpoint') || '',
+            key: localStorage.getItem('sr_img_key') || '',
+            model: localStorage.getItem('sr_img_model') || '',
+        },
+        dynamic: {
+            charDailyDate: collectPrefixedKeys('sr_char_daily_date_'),
+            charDailyMemo: collectPrefixedKeys('sr_char_daily_memo_'),
+            memoComment: collectPrefixedKeys('sr_memo_comment_'),
+            charMemo: collectPrefixedKeys('sr_char_daily_memo_'),
+        },
     };
-    try { all.misc = { mcp: JSON.parse(localStorage.getItem('sr_mcp_servers') || '[]') }; } catch(e){ all.misc = {}; }
     downloadJson(JSON.stringify(all), 'pocket_phone_full_backup.json');
     closeAppDialog();
     openAlert('已导出全部数据');
@@ -6103,16 +6210,81 @@ function importBackupData(input) {
         try {
             const parsed = JSON.parse(e.target.result);
 
+            function restoreKey(key, value) {
+                if (value === undefined || value === null) return;
+                localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+            }
+
             if (parsed.api && parsed.chatHistory !== undefined) {
                 appData = parsed;
             } else if (parsed.appData) {
                 appData = parsed.appData;
 
+                // 兼容旧版 calState / 新版 calendar
                 if (parsed.calState) {
                     if (parsed.calState.journals) calState.journals = parsed.calState.journals;
                     if (parsed.calState.todos) calState.todos = parsed.calState.todos;
                 }
+                if (parsed.calendar) {
+                    if (parsed.calendar.journals) calState.journals = parsed.calendar.journals;
+                    if (parsed.calendar.schedules) calState.schedules = parsed.calendar.schedules;
+                    if (parsed.calendar.todos) calState.todos = parsed.calendar.todos;
+                    if (parsed.calendar.wheelOptions) restoreKey('sr_wheel_options', parsed.calendar.wheelOptions);
+                }
 
+                // 全量还原（version 4+）
+                if (parsed.anniversaries) restoreKey('sr_anniversaries', parsed.anniversaries);
+                if (parsed.anniversaryPinned) restoreKey('sr_anniversary_pinned', parsed.anniversaryPinned);
+                if (parsed.worldData) {
+                    if (parsed.worldData.settings) restoreKey('sr_world_settings', parsed.worldData.settings);
+                    if (parsed.worldData.personas) restoreKey('sr_world_personas', parsed.worldData.personas);
+                    if (parsed.worldData.archives) restoreKey('sr_world_archives', parsed.worldData.archives);
+                }
+                if (parsed.fanwai) {
+                    if (parsed.fanwai.boundWbIds) restoreKey('sr_fanwai_wb_ids', parsed.fanwai.boundWbIds);
+                    if (parsed.fanwai.novels) restoreKey('sr_novels', parsed.fanwai.novels);
+                    if (parsed.fanwai.endpoint) restoreKey('sr_fanwai_endpoint', parsed.fanwai.endpoint);
+                    if (parsed.fanwai.key) restoreKey('sr_fanwai_key', parsed.fanwai.key);
+                    if (parsed.fanwai.model) restoreKey('sr_fanwai_model', parsed.fanwai.model);
+                }
+                if (parsed.mysticArchives) restoreKey('sr_mystic_archives', parsed.mysticArchives);
+                if (parsed.mysticBase) restoreKey('sr_mystic_base', parsed.mysticBase);
+                if (parsed.memoChars) restoreKey('sr_memo_chars', parsed.memoChars);
+                if (parsed.memo !== undefined && parsed.memo !== null) localStorage.setItem('sr_memo', parsed.memo);
+                if (parsed.appearance) restoreKey('sr_appearance', parsed.appearance);
+                if (parsed.mcp) restoreKey('sr_mcp_servers', parsed.mcp);
+                if (parsed.boundWbIds) restoreKey('sr_bound_wb_ids', parsed.boundWbIds);
+                if (parsed.lockBg) restoreKey('sr_lock_bg', parsed.lockBg);
+                if (parsed.lockQuote) restoreKey('sr_lock_quote', parsed.lockQuote);
+                if (parsed.dark) restoreKey('sr_dark', true);
+                if (parsed.activeIds) {
+                    if (parsed.activeIds.charId) restoreKey('sr_active_char_id', parsed.activeIds.charId);
+                    if (parsed.activeIds.userId) restoreKey('sr_active_user_id', parsed.activeIds.userId);
+                    if (parsed.activeIds.contact) restoreKey('sr_active_contact', parsed.activeIds.contact);
+                }
+                if (parsed.lastUserPhoto) {
+                    if (parsed.lastUserPhoto.data) restoreKey('sr_last_user_photo', parsed.lastUserPhoto.data);
+                    if (parsed.lastUserPhoto.key) restoreKey('sr_last_user_photo_key', parsed.lastUserPhoto.key);
+                }
+                if (parsed.lastTs) restoreKey('sr_last_ts', parsed.lastTs);
+                if (parsed.lastMemoCommented) restoreKey('sr_last_memo_commented', parsed.lastMemoCommented);
+                if (parsed.lastDiaryMsgCount) restoreKey('sr_last_diary_msg_count', parsed.lastDiaryMsgCount);
+                if (parsed.pomoWarehouse) restoreKey('sr_pomo_warehouse', parsed.pomoWarehouse);
+                if (parsed.auditLogs) restoreKey('sr_audit_logs', parsed.auditLogs);
+                if (parsed.imgApi) {
+                    if (parsed.imgApi.endpoint) restoreKey('sr_img_endpoint', parsed.imgApi.endpoint);
+                    if (parsed.imgApi.key) restoreKey('sr_img_key', parsed.imgApi.key);
+                    if (parsed.imgApi.model) restoreKey('sr_img_model', parsed.imgApi.model);
+                }
+                if (parsed.dynamic) {
+                    ['charDailyDate', 'charDailyMemo', 'memoComment'].forEach(section => {
+                        (parsed.dynamic[section] || []).forEach(item => {
+                            if (item && item.key) restoreKey(item.key, item.value);
+                        });
+                    });
+                }
+
+                // 兼容旧版 extras
                 if (parsed.extras) {
                     const ex = parsed.extras;
                     if (ex.heartVoice) localStorage.setItem('sr_heart_voice', ex.heartVoice);

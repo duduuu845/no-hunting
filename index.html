@@ -19,7 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 
     <!-- 引入独立皮肤文件 -->
-    <link rel="stylesheet" href="style.css?v=20">
+    <link rel="stylesheet" href="style.css?v=21">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
@@ -29,13 +29,13 @@
 
 <div class="phone-container" id="main-container">
     <!-- 锁屏层 (单击全屏任意处直接解锁) -->
-    <div class="lockscreen-overlay" id="lockscreen" onclick="unlockScreen()">
+    <div class="lockscreen-overlay" id="lockscreen" onclick="lockTap(event)">
         <!-- 背景层：天空 + 海面 -->
         <div class="ls-sky"></div>
         <div class="ls-sea"></div>
 
         <!-- 顶部居中可编辑文本（小猫脸位置） -->
-        <div class="ls-top-quote" contenteditable="true" spellcheck="false">˶• ω •˶</div>
+        <div class="ls-top-quote" contenteditable="true" spellcheck="false" onblur="saveLockQuote()">˶• ω •˶</div>
 
         <!-- 超大时间（实时刷新，可编辑） -->
         <div class="ls-big-time" contenteditable="true" spellcheck="false" id="ls-clock-text">00:00</div>
@@ -1603,7 +1603,7 @@
     </div>
 </div>
 
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 <script>
 // 物理直连：手账存盘保存绝对通道 (绝不被外部中断)
 function saveJournalEntry() {

@@ -2954,8 +2954,9 @@ select.appearance-select {
 }
 .lockscreen-overlay .ls-top-quote:focus { background: rgba(255,255,255,0.08); border-radius: 6px; }
 .lockscreen-overlay .ls-big-time {
-    position: absolute; top: 6.5%; left: 5%; width: 88%;
-    font-size: 120px; line-height: 0.95; font-weight: 700;
+    position: absolute; top: 24%; left: 5%; width: 88%;
+    font-size: 105px; line-height: 0.95; font-weight: 700;
+    opacity: 0.85;
     font-family: -apple-system, "Helvetica Neue", "PingFang SC", sans-serif;
     letter-spacing: -1px; border: none; outline: none; cursor: text;
     background: linear-gradient(180deg, #FFFFFF 0%, #CFE2FB 100%);
