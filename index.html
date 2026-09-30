@@ -19,7 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
 
     <!-- 引入独立皮肤文件 -->
-    <link rel="stylesheet" href="style.css?v=18">
+    <link rel="stylesheet" href="style.css?v=20">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
@@ -401,6 +401,7 @@
                         <select class="cal-select-native" id="cal-month-select" onchange="onDatePickerChange()"></select>
                     </div>
                     <button class="cal-arrow-btn" onclick="shiftMonth(1)">›</button>
+                    <button class="cal-today-btn" onclick="goToToday()" title="回到今天">今天</button>
                 </div>
 
                 <!-- 星期表头 -->
@@ -1239,6 +1240,7 @@
             <input type="file" id="doc-analysis-file" style="display:none;" accept=".txt,.md,.csv,.json,.docx,.doc,.pdf" onchange="handleDocAnalysisFile(this)">
             <button class="btn-action secondary small" onclick="document.getElementById('doc-analysis-file').click()">📂 选择文件</button>
             <div id="doc-analysis-filename" style="font-size:11px; color:var(--text-sub);">未选择文件</div>
+            <select class="dialog-input" id="doc-analysis-char" style="font-size:12px;" onfocus="populateDocCharSelect()"></select>
             <label style="font-size:11px; color:var(--text-sub); margin-top:6px;">你想让 TA 帮你做什么？</label>
             <textarea class="dialog-input" id="doc-analysis-prompt" style="height:70px; line-height:1.4;" placeholder="如：帮我总结要点、制定学习计划、做出待办表格..."></textarea>
             <button class="btn-action" onclick="runDocAnalysis()">✨ 开始分析</button>
@@ -1601,7 +1603,7 @@
     </div>
 </div>
 
-<script src="app.js?v=21"></script>
+<script src="app.js?v=22"></script>
 <script>
 // 物理直连：手账存盘保存绝对通道 (绝不被外部中断)
 function saveJournalEntry() {

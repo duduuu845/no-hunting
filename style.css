@@ -3024,12 +3024,12 @@ select.appearance-select {
 }
 #appearance-preview .pv-user {
     color: var(--user-text-color, #ffffff);
-    border-radius: var(--user-br-tl) var(--user-br-tr) var(--user-br-bl) var(--user-br-br);
+    border-radius: var(--user-br-tl) var(--user-br-tr) var(--user-br-br) var(--user-br-bl);
 }
 #appearance-preview .pv-user::before { background: var(--user-bubble-bg, #007aff); }
 #appearance-preview .pv-char {
     color: var(--char-text-color, #1a1a1a);
-    border-radius: var(--char-br-tl) var(--char-br-tr) var(--char-br-bl) var(--char-br-br);
+    border-radius: var(--char-br-tl) var(--char-br-tr) var(--char-br-br) var(--char-br-bl);
 }
 #appearance-preview .pv-char::before { background: var(--char-bubble-bg, #f1f3f5); }
 #appearance-preview .pv-time { font-size: var(--time-font-size, 9.5px); }
