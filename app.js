@@ -500,7 +500,7 @@ function updateChatHeaderUI() {
             statusEl.innerText = '在线 · ' + ((activeC.memberIds || []).length + (activeC.includeMe ? 1 : 0)) + ' 人在线 ▾';
         } else {
             const st = (activeC && activeC.status) || '';
-            statusEl.innerText = st ? ('在线 · ' + st + ' ▾') : '在线 ▾';
+            statusEl.innerText = st ? ('在线 · ' + st.replace(/[>><<\[\]]/g, '').replace(/^[·:：\s]+/, '').trim() + ' ▾') : '在线 ▾';
         }
     }
     const hvContent = document.getElementById('heart-voice-content');
@@ -1116,13 +1116,13 @@ function appendBubbleToUI(role, text, timeStr, quoteData, msgId) {
 
     let quoteHtml = "";
     if (aiQuote) {
-        quoteHtml = `<div class="in-bubble-quote-bottom">↳ ${aiQuote.sender}: ${aiQuote.text}</div>`;
+        quoteHtml = `<div class="in-bubble-quote-top">↳ ${aiQuote.sender}: ${aiQuote.text}</div>`;
     }
 
     row.innerHTML = `
         <input type="checkbox" class="msg-checkbox" onchange="updateSelectedCount()">
         <div class="bubble-container">
-            <div class="msg-bubble">${text}${quoteHtml}</div>
+            <div class="msg-bubble">${quoteHtml}${text}</div>
             <span class="msg-time">${timeStr}</span>
         </div>
     `;
@@ -1217,7 +1217,7 @@ function triggerQuoteFromPill(btn, e) {
     const sender = isUser ? "我" : appData.contactName;
 
     let cleanText = bubble.innerText;
-    const existingQuote = bubble.querySelector('.in-bubble-quote-bottom');
+    const existingQuote = bubble.querySelector('.in-bubble-quote-top') || bubble.querySelector('.in-bubble-quote-bottom');
     if (existingQuote) cleanText = cleanText.replace(existingQuote.innerText, '').trim();
 
     currentQuoteData = { sender, text: cleanText.slice(0, 32) };
@@ -1256,18 +1256,22 @@ function triggerRecallFromPill(btn, e) {
             persist();
 
             if (isUser) {
-                const notice = document.createElement('div');
-                notice.className = 'recalled-msg-notice';
-                notice.dataset.msgId = msgId;
-                notice.innerText = "你撤回了一条消息";
-                row.replaceWith(notice);
+                const foldNotice = document.createElement('div');
+                foldNotice.className = 'char-recall-fold';
+                foldNotice.dataset.msgId = msgId;
+                foldNotice.innerHTML = `
+                    <span>你撤回了一条消息 (点击查看)</span>
+                    <div class="char-recall-detail">${escapeHtml(originalText)}</div>
+                `;
+                foldNotice.onclick = () => foldNotice.classList.toggle('open');
+                row.replaceWith(foldNotice);
             } else {
                 const foldNotice = document.createElement('div');
                 foldNotice.className = 'char-recall-fold';
                 foldNotice.dataset.msgId = msgId;
                 foldNotice.innerHTML = `
-                    <span>${appData.contactName} 撤回了一条消息 (点击查看)</span>
-                    <div class="char-recall-detail">${originalText}</div>
+                    <span>${escapeHtml(appData.contactName)} 撤回了一条消息 (点击查看)</span>
+                    <div class="char-recall-detail">${escapeHtml(originalText)}</div>
                 `;
                 foldNotice.onclick = () => foldNotice.classList.toggle('open');
                 row.replaceWith(foldNotice);
@@ -1902,7 +1906,7 @@ async function triggerAiReply() {
             body: JSON.stringify({
                 model: model,
                 messages: finalMessages,
-                temperature: appData.params.temp || 0.85
+                temperature: (appData.params.temp != null) ? appData.params.temp : 0.85
             })
         });
 
@@ -1923,7 +1927,7 @@ async function triggerAiReply() {
                     body: JSON.stringify({
                         model: model,
                         messages: textOnlyMessages,
-                        temperature: appData.params.temp || 0.85
+                        temperature: (appData.params.temp != null) ? appData.params.temp : 0.85
                     })
                 });
                 if (!retry.ok) throw new Error(`HTTP ${retry.status}`);
@@ -1984,8 +1988,10 @@ async function triggerAiReply() {
             // 没给 status 标签时，用回复内容推断一个轻量心情（取首句前 6 字）
             const activeC = getActiveContact();
             if (activeC && fullReply.trim()) {
-                const firstLine = fullReply.trim().split(/\n/)[0].slice(0, 6);
-                activeC.status = firstLine || '';
+                const firstLine = fullReply.trim().split(/\n/)[0].slice(0, 12)
+                    .replace(/\[(?:引用|heart_voice|status|memo_comment|image|image_with_user|video_call|diary|tool_call)[^\]]*\]/gi, '')
+                    .replace(/^[>><<·:：\s]+/, '').trim();
+                activeC.status = firstLine.slice(0, 6) || '';
             }
         }
         updateChatHeaderUI();
@@ -2111,14 +2117,23 @@ async function triggerAiReply() {
                     if (m.role !== 'char' || m.recalled || (m.text && m.text.indexOf('[撤回]') !== -1)) continue;
                     m.recalled = true;
                     m.recalledBy = 'char';
+                    m.originalText = m.originalText || m.text;
                     const rowEl = document.querySelector(`.msg-row[data-msg-id="${m.id}"]`);
-                    if (rowEl) rowEl.innerHTML = `<div class="recalled-msg-notice">${escapeHtml(appData.contactName || '对方')} 撤回了一条消息</div>`;
+                    if (rowEl) {
+                        const f = document.createElement('div');
+                        f.className = 'char-recall-fold';
+                        f.innerHTML = `<span>${escapeHtml(appData.contactName || '对方')} 撤回了一条消息 (点击查看)</span><div class="char-recall-detail">${escapeHtml(m.text)}</div>`;
+                        f.onclick = () => f.classList.toggle('open');
+                        rowEl.replaceWith(f);
+                    }
                     break;
                 }
                 persist();
             } catch (e) {}
         }
         for (let i = 0; i < rawBubbles.length; i++) {
+            // 纯撤回指令段不显示为气泡（[撤回] 只在上面触发折叠提醒）
+            if (/^\[撤回\]\s*$/.test(rawBubbles[i].trim())) continue;
             statusEl.innerText = "对方正在输入...";
             await sleep(800 + Math.min(rawBubbles[i].length * 20, 1000));
 
@@ -2923,6 +2938,14 @@ function openAvatarEditor() {
     dlg.classList.add('open');
 }
 function afterAvatarSave(active) {
+    // 头像全局同步：联系人头像改了就回写人物档案库（同名/同 id 的 char）
+    try {
+        if (active && active.type === 'char') {
+            const personas = (appData.personas && appData.personas.char) || [];
+            const p = personas.find(x => x.id === active.id) || personas.find(x => x.name === (active.realName || active.name));
+            if (p && active.avatar) p.avatar = active.avatar;
+        }
+    } catch (e) {}
     persist();
     updateChatHeaderUI();
     const da = document.getElementById('detail-avatar');
@@ -4205,6 +4228,7 @@ window.onload = function() {
     updateLockClock();
     setInterval(updateLockClock, 10000);
     loadLockQuote();
+    syncAvatarAcross();
 
     const headerNameEl = document.getElementById('header-contact-name');
     if (headerNameEl) headerNameEl.innerText = appData.contactName;
@@ -4632,6 +4656,19 @@ function savePersonaDetail() {
     renderContactsList();
     closeSubModal('modal-persona-detail');
     openAlert('人物档案已保存！');
+}
+
+// 全局头像同步：以人物档案库为准，把每个 char 的头像同步到联系人（导入/加载后调用一次）
+function syncAvatarAcross() {
+    try {
+        const personas = (appData.personas && appData.personas.char) || [];
+        const contacts = (appData.contacts || []).filter(c => c.type === 'char');
+        personas.forEach(p => {
+            if (!p.avatar) return;
+            const c = contacts.find(x => x.id === p.id) || contacts.find(x => x.name === p.name || x.realName === p.name);
+            if (c && c.avatar !== p.avatar) c.avatar = p.avatar;
+        });
+    } catch (e) {}
 }
 
 // char 人物档案 ↔ 联系人同步（新增/更新）
@@ -5886,6 +5923,10 @@ function saveAppearancePreset() {
     saveAppearancePresets(list);
     const inp = document.getElementById('preset-name-input');
     if (inp) inp.value = '';
+    const box = document.getElementById('appearance-preset-list');
+    if (box) box.style.display = 'flex';
+    const head = document.getElementById('preset-toggle-head');
+    if (head) head.querySelector('.preset-arrow').innerText = '▾';
     renderAppearancePresets();
     openAlert('已保存外观预设「' + name + '」');
 }
@@ -5903,6 +5944,15 @@ function deleteAppearancePreset(idx) {
     list.splice(idx, 1);
     saveAppearancePresets(list);
     renderAppearancePresets();
+}
+function togglePresetList() {
+    const box = document.getElementById('appearance-preset-list');
+    const head = document.getElementById('preset-toggle-head');
+    if (!box) return;
+    const show = box.style.display === 'none';
+    box.style.display = show ? 'flex' : 'none';
+    if (head) head.querySelector('.preset-arrow').innerText = show ? '▾' : '▸';
+    if (show) renderAppearancePresets();
 }
 function renderAppearancePresets() {
     const box = document.getElementById('appearance-preset-list');
@@ -6428,6 +6478,7 @@ function importBackupData(input) {
                 throw new Error('备份文件格式不正确');
             }
 
+            syncAvatarAcross();
             persist();
             persistCalendar();
             openAlert('数据已完整恢复！即将刷新...');
@@ -8877,12 +8928,17 @@ function handleDocAnalysisFile(input) {
             .catch(e => { fn.innerText = '读取 PDF 失败：' + e.message; });
     } else {
         // 纯文本类
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            docAnalysisContent = e.target.result;
-            fn.innerText = `已载入：${file.name} (${(file.size/1024).toFixed(1)} KB)`;
-        };
-        reader.readAsText(file);
+        try {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                docAnalysisContent = e.target.result;
+                fn.innerText = `已载入：${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+            };
+            reader.onerror = function() { fn.innerText = '读取文件失败：' + (reader.error ? reader.error.message : '未知错误'); };
+            reader.readAsText(file);
+        } catch (e) {
+            fn.innerText = '读取文件失败：' + e.message;
+        }
     }
     input.value = '';
 }
@@ -9045,23 +9101,15 @@ async function runMiniGame() {
 
 // ==================== 渲染回忆（兼容） ====================
 function renderRecalledItem(chatView, item) {
-    if (item.recalledBy === 'user') {
-        const notice = document.createElement('div');
-        notice.className = 'recalled-msg-notice';
-        notice.dataset.msgId = item.id;
-        notice.innerText = "你撤回了一条消息";
-        chatView.appendChild(notice);
-    } else {
-        const foldNotice = document.createElement('div');
-        foldNotice.className = 'char-recall-fold';
-        foldNotice.dataset.msgId = item.id;
-        foldNotice.innerHTML = `
-            <span>${appData.contactName} 撤回了一条消息 (点击查看)</span>
-            <div class="char-recall-detail">${item.originalText || ''}</div>
-        `;
-        foldNotice.onclick = () => foldNotice.classList.toggle('open');
-        chatView.appendChild(foldNotice);
-    }
+    const foldNotice = document.createElement('div');
+    foldNotice.className = 'char-recall-fold';
+    foldNotice.dataset.msgId = item.id;
+    foldNotice.innerHTML = `
+        <span>${item.recalledBy === 'user' ? '你' : escapeHtml(appData.contactName || '对方')} 撤回了一条消息 (点击查看)</span>
+        <div class="char-recall-detail">${escapeHtml(item.originalText || '')}</div>
+    `;
+    foldNotice.onclick = () => foldNotice.classList.toggle('open');
+    chatView.appendChild(foldNotice);
 }
 
 // ==================== MCP 设置页逻辑 ====================

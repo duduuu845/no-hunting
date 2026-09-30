@@ -780,18 +780,18 @@ body.dark-mode .bubble-pill-btn[title="撤回"] {
 }
 
 /* 引用条：置于气泡文字下方 */
-.in-bubble-quote-bottom {
-    margin-top: 6px;
-    padding-top: 4px;
-    border-top: 0.5px dashed rgba(255, 255, 255, 0.35);
+.in-bubble-quote-top {
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 0.5px dashed rgba(255, 255, 255, 0.35);
     font-size: 11px;
-    opacity: 0.75;
+    opacity: 0.72;
     display: flex;
     gap: 4px;
     line-height: 1.3;
 }
-.msg-row.char .in-bubble-quote-bottom {
-    border-top-color: rgba(0, 0, 0, 0.15);
+.msg-row.char .in-bubble-quote-top {
+    border-bottom-color: rgba(0, 0, 0, 0.18);
     color: var(--text-sub);
 }
 
@@ -2960,12 +2960,12 @@ select.appearance-select {
 }
 .lockscreen-overlay .ls-top-quote:focus { background: rgba(255,255,255,0.08); border-radius: 6px; }
 .lockscreen-overlay .ls-big-time {
-    position: absolute; top: 24%; left: 5%; width: 88%;
+    position: absolute; top: 12%; left: 5%; width: 88%;
     font-size: 105px; line-height: 0.95; font-weight: 700;
-    opacity: 0.85;
+    opacity: 0.88;
     font-family: -apple-system, "Helvetica Neue", "PingFang SC", sans-serif;
     letter-spacing: -1px; border: none; outline: none; cursor: text;
-    background: linear-gradient(180deg, #FFFFFF 0%, #CFE2FB 100%);
+    background: linear-gradient(180deg, #FFFFFF 0%, #C9E0FF 40%, #8FBDFF 100%);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
     overflow: visible; white-space: nowrap; padding: 4px 8px;
     /* 数字瘦长比例（拉长数字：宽度压缩 + 高度拉伸，接近 1:2 的竖长字形） */
@@ -2974,7 +2974,7 @@ select.appearance-select {
 }
 .lockscreen-overlay .ls-big-time:focus { -webkit-text-fill-color: #fff; background: rgba(255,255,255,0.12); border-radius: 10px; }
 .lockscreen-overlay .ls-date-block {
-    position: absolute; top: 42%; left: 6%;
+    position: absolute; top: 34%; left: 6%;
     display: flex; flex-direction: column; gap: 5px;
 }
 .lockscreen-overlay .ls-date-line { font-size: 19px; font-weight: 400; color: rgba(255,255,255,0.95); line-height: 1.25; }
