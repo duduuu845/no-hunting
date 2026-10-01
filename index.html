@@ -1509,6 +1509,10 @@
                 <div class="appearance-row"><span class="appearance-label">聊天背景</span>
                     <input type="color" class="appearance-color" id="cfg-chat-bg" value="#ffffff" oninput="setAppearance('chatBgColor', this.value)">
                 </div>
+                <div class="appearance-row"><span class="appearance-label">模块背景色</span>
+                    <input type="color" class="appearance-color" id="cfg-module-bg" value="" oninput="setAppearance('moduleBg', this.value)">
+                    <span style="font-size:10px; color:var(--text-sub);">（如「主题与背景」「字体」这些模块卡片的背景）</span>
+                </div>
             </div>
 
             <div class="action-card" style="padding:12px 14px; margin-top:10px;">
@@ -1569,6 +1573,10 @@
                 <div class="appearance-row"><span class="appearance-label">气泡圆角</span>
                     <input type="range" class="appearance-range" min="0" max="30" step="1" id="cfg-bubble-radius" value="18" oninput="setAppearance('bubbleRadius', this.value)">
                     <span class="appearance-value" id="val-bubble-radius">18</span>
+                </div>
+                <div class="appearance-row"><span class="appearance-label">气泡上下高度</span>
+                    <input type="range" class="appearance-range" min="4" max="22" step="1" id="cfg-bubble-pad-y" value="9" oninput="setAppearance('bubblePadY', this.value)">
+                    <span class="appearance-value" id="val-bubble-pad-y">9</span>
                 </div>
                 <div class="appearance-row"><span class="appearance-label">气泡最大宽</span>
                     <input type="range" class="appearance-range" min="40" max="92" step="1" id="cfg-bubble-max" value="76" oninput="setAppearance('bubbleMaxWidth', this.value)">
@@ -1635,6 +1643,10 @@
                     <input type="text" id="preset-name-input" class="dialog-input" placeholder="预设名称（如：夜间磨砂蓝）" style="flex:1; font-size:12px; min-width:0;">
                     <button class="btn-action secondary small" onclick="saveAppearancePreset()">保存当前</button>
                 </div>
+                <div style="display:flex; gap:6px; margin-bottom:8px;">
+                    <input type="file" id="appearance-preset-import-input" style="display:none;" accept=".json,application/json" onchange="importAppearancePreset(this)">
+                    <button class="btn-action secondary small" style="flex:1;" onclick="document.getElementById('appearance-preset-import-input').click()">⬇ 导入别人的预设</button>
+                </div>
                 <div id="appearance-preset-list" style="display:none; flex-direction:column; gap:6px;"></div>
             </div>
 
@@ -1690,7 +1702,7 @@
     </div>
 </div>
 
-<script src="app.js?v=51"></script>
+<script src="app.js?v=53"></script>
 <script>
 // 物理直连：手账存盘保存绝对通道 (绝不被外部中断)
 function saveJournalEntry() {

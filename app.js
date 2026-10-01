@@ -387,6 +387,8 @@ let appData = {
         };
     })(),
     boundWbIds: JSON.parse(localStorage.getItem('sr_bound_wb_ids') || '[]'),
+    boundJailbreaks: JSON.parse(localStorage.getItem('sr_bound_jailbreaks') || '[]'),
+    boundWbs: [],
     stickers: JSON.parse(localStorage.getItem('sr_stickers') || '{"默认表情":[]}'),
     auditLogs: JSON.parse(localStorage.getItem('sr_audit_logs') || '[]'),
     isDark: JSON.parse(localStorage.getItem('sr_dark') || 'false'),
@@ -438,6 +440,8 @@ function loadContactScopedData(contactId) {
     catch (e) { appData.diaries = []; }
     try { const v = JSON.parse(localStorage.getItem('sr_schedules_' + id) || '[]'); appData.schedules = Array.isArray(v) ? v : []; }
     catch (e) { appData.schedules = []; }
+    try { const v = JSON.parse(localStorage.getItem('sr_bound_wbs_' + id) || '[]'); appData.boundWbs = Array.isArray(v) ? v : []; }
+    catch (e) { appData.boundWbs = []; }
 }
 function saveContactScopedData(contactId) {
     const id = contactId || '';
@@ -463,6 +467,22 @@ function migrateLegacyScopedData() {
         }
         localStorage.removeItem(oldKey);
     });
+    // 世界书/破限绑定拆分：破限绑定全局（sr_bound_jailbreaks），世界书绑定按联系人（sr_bound_wbs_<id>）
+    if (localStorage.getItem('sr_bound_wb_ids')) {
+        let oldBind = [];
+        try { oldBind = JSON.parse(localStorage.getItem('sr_bound_wb_ids')); } catch (e) { oldBind = []; }
+        if (Array.isArray(oldBind)) {
+            const jbIds = oldBind.filter(x => typeof x === 'string' && x.indexOf('jb_') === 0);
+            const wbIds = oldBind.filter(x => typeof x === 'string' && x.indexOf('wb_') === 0);
+            if (jbIds.length && !localStorage.getItem('sr_bound_jailbreaks')) {
+                localStorage.setItem('sr_bound_jailbreaks', JSON.stringify(jbIds));
+            }
+            if (wbIds.length && !localStorage.getItem('sr_bound_wbs_' + first.id)) {
+                localStorage.setItem('sr_bound_wbs_' + first.id, JSON.stringify(wbIds));
+            }
+        }
+        localStorage.removeItem('sr_bound_wb_ids');
+    }
 }
 
 // 兼容旧版"单联系人"数据：把旧的聊天记录 + 联系人名迁移成第一个联系人。
@@ -631,7 +651,8 @@ function persist() {
     const memSaveId = (memViewContactId !== null && memViewContactId !== undefined) ? memViewContactId : (activeC ? activeC.id : '');
     if (memSaveId) saveContactScopedData(memSaveId);
     localStorage.setItem('sr_favorites', JSON.stringify(appData.favorites));
-    localStorage.setItem('sr_bound_wb_ids', JSON.stringify(appData.boundWbIds));
+    localStorage.setItem('sr_bound_jailbreaks', JSON.stringify(appData.boundJailbreaks || []));
+    if (activeC) localStorage.setItem('sr_bound_wbs_' + activeC.id, JSON.stringify(appData.boundWbs || []));
     localStorage.setItem('sr_stickers', JSON.stringify(appData.stickers));
     localStorage.setItem('sr_audit_logs', JSON.stringify(appData.auditLogs));
     localStorage.setItem('sr_dark', JSON.stringify(appData.isDark));
@@ -875,8 +896,16 @@ function unlockScreen() {
 }
 
 // ==================== 4大主Tab切换 ====================
+// 底部导航栏显隐：聊天页 / 异世界故事输入时隐藏（已有底部输入框，导航栏冗余）
+function setBottomNavVisible(visible) {
+    const nav = document.querySelector('.bottom-nav');
+    if (nav) nav.style.display = visible ? 'flex' : 'none';
+}
+
 function switchMainTab(viewId, title, btn) {
     currentMainView = viewId;
+    // 聊天详情页隐藏底部导航栏（有输入框就不显示导航栏）
+    setBottomNavVisible(viewId !== 'chat-container' && viewId !== 'chat');
     try {
         document.querySelectorAll('.view-panel').forEach(v => v.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
@@ -1824,8 +1853,8 @@ async function triggerAiReply() {
     const userObj = appData.personas.user.find(u => u.id === activePersonaUserId)
                  || (appData.personas.user && appData.personas.user[0])
                  || { name: "新朋友", prompt: "" };
-    const activeJailbreaks = (appData.jailbreaks || []).filter(jb => (appData.boundWbIds || []).includes(jb.id) && jb.enabled);
-    const activeWorldbooks = (appData.worldbooks || []).filter(wb => (appData.boundWbIds || []).includes(wb.id) && wb.enabled);
+    const activeJailbreaks = (appData.jailbreaks || []).filter(jb => (appData.boundJailbreaks || []).includes(jb.id) && jb.enabled);
+    const activeWorldbooks = (appData.worldbooks || []).filter(wb => (appData.boundWbs || []).includes(wb.id) && wb.enabled);
 
     // --- 时间感知上下文（隐蔽注入，位于最顶层） ---
     let systemPrompt = buildTimeContext() + `\n\n`;
@@ -1843,7 +1872,8 @@ async function triggerAiReply() {
         });
         systemPrompt += `\n铁律：\n1. 每次回复让群里的每个角色轮流发言，不要漏掉任何角色。\n2. 格式严格为：【角色名】发言内容（每个角色 1-2 句，自然口语）。\n3. 各角色必须严格保持自己的人设、语气和观点，可以互相调侃或分歧。\n4. 不要出现"群主""群管"等额外角色。\n\n`;
     } else {
-        systemPrompt += `[CHAR 角色档案]:\n姓名: ${charObj.name}\n人设: ${charObj.prompt}\n\n`;
+        systemPrompt += `[CHAR 角色档案]:\n姓名: ${charObj.name}\n人设: ${charObj.prompt || '(未填写人设)'}\n`;
+        systemPrompt += `[关系铁律 (必须遵守)]: 你是一个完全独立的全新角色，与 user 的关系只由「人设」和这段对话的真实发展决定。禁止预设任何已有关系（恋人/暧昧/家人都不允许），禁止沿用或借用任何其他角色的关系、称呼、记忆或说话习惯。若人设为空，你们就是刚认识的新朋友，一切从零开始，用自然朋友式的语气开场。\n\n`;
         systemPrompt += `[USER 对话伴侣档案]:\n姓名: ${userObj.name}\n人设: ${userObj.prompt}\n\n`;
     }
     systemPrompt += `[生效世界书]:\n${activeWorldbooks.map(w => `【${w.title}】:\n${w.content}`).join('\n')}\n\n`;
@@ -2740,37 +2770,19 @@ function openWbBindingPage() {
     jbGroup.className = 'action-card wb-fold-group open';
     jbGroup.innerHTML = `
         <div class="wb-fold-header" onclick="this.parentElement.classList.toggle('open')">
-            <span>⚡ 破限规则</span>
+            <span>⚡ 破限规则（全局：所有角色共用）</span>
             <span style="font-size:11px; color:var(--text-sub);">▼</span>
         </div>
         <div class="wb-fold-content">
             ${appData.jailbreaks.map(jb => `
                 <label style="display:flex; align-items:center; gap:6px;">
-                    <input type="checkbox" value="${jb.id}" ${appData.boundWbIds.includes(jb.id)?'checked':''}>
+                    <input type="checkbox" value="${jb.id}" ${(appData.boundJailbreaks||[]).includes(jb.id)?'checked':''}>
                     <span>${jb.title}</span>
                 </label>
             `).join('')}
         </div>
     `;
     tree.appendChild(jbGroup);
-
-    const memGroup = document.createElement('div');
-    memGroup.className = 'action-card wb-fold-group open';
-    memGroup.innerHTML = `
-        <div class="wb-fold-header" onclick="this.parentElement.classList.toggle('open')">
-            <span>🧠 核心记忆沉淀</span>
-            <span style="font-size:11px; color:var(--text-sub);">▼</span>
-        </div>
-        <div class="wb-fold-content">
-            ${appData.memories.long.map(lm => `
-                <label style="display:flex; align-items:center; gap:6px;">
-                    <input type="checkbox" value="${lm.id}" ${appData.boundWbIds.includes(lm.id)?'checked':''}>
-                    <span>${lm.title}</span>
-                </label>
-            `).join('')}
-        </div>
-    `;
-    tree.appendChild(memGroup);
 
     const catMap = {};
     appData.worldbooks.forEach(wb => {
@@ -2784,13 +2796,13 @@ function openWbBindingPage() {
         group.className = 'action-card wb-fold-group';
         group.innerHTML = `
             <div class="wb-fold-header" onclick="this.parentElement.classList.toggle('open')">
-                <span>📖 ${cat}</span>
+                <span>📖 ${cat}（当前角色专属）</span>
                 <span style="font-size:11px; color:var(--text-sub);">▼</span>
             </div>
             <div class="wb-fold-content">
                 ${catMap[cat].map(wb => `
                     <label style="display:flex; align-items:center; gap:6px;">
-                        <input type="checkbox" value="${wb.id}" ${appData.boundWbIds.includes(wb.id)?'checked':''}>
+                        <input type="checkbox" value="${wb.id}" ${(appData.boundWbs||[]).includes(wb.id)?'checked':''}>
                         <span>${wb.title}</span>
                     </label>
                 `).join('')}
@@ -2803,12 +2815,22 @@ function openWbBindingPage() {
 }
 
 function saveWbBindings() {
-    const checked = [];
-    document.querySelectorAll('#wb-binding-tree input:checked').forEach(cb => checked.push(cb.value));
-    appData.boundWbIds = checked;
+    const jbChecked = [];
+    const wbChecked = [];
+    document.querySelectorAll('#wb-binding-tree input:checked').forEach(cb => {
+        if (cb.value.indexOf('jb_') === 0) jbChecked.push(cb.value);
+        else wbChecked.push(cb.value);
+    });
+    // 破限绑定：全局，所有角色共用
+    appData.boundJailbreaks = jbChecked;
+    localStorage.setItem('sr_bound_jailbreaks', JSON.stringify(jbChecked));
+    // 世界书绑定：当前角色专属
+    appData.boundWbs = wbChecked;
+    const active = getActiveContact();
+    if (active) localStorage.setItem('sr_bound_wbs_' + active.id, JSON.stringify(wbChecked));
     persist();
     closeSubModal('page-wb-binding');
-    openAlert('世界书关联已保存！');
+    openAlert('已保存：破限（全局）＋ 世界书（当前角色）！');
 }
 
 // ==================== 联系人管理（多联系人） ====================
@@ -2855,7 +2877,7 @@ function renderContactsList() {
             else if (lastMsg.type === 'voice') preview = '🎙️ [语音]';
             else if (lastMsg.type === 'file') preview = '📁 [文件]';
             else if (lastMsg.type === 'sticker' || (lastMsg.isSticker && lastMsg.text && lastMsg.text.startsWith('[表情]'))) preview = '🖼️ [表情]';
-            else preview = (lastMsg.role === 'user' ? '我：' : (c.name || '') + '：') + String(lastMsg.text || '').replace(/\n/g, ' ').slice(0, 30);
+            else preview = (lastMsg.role === 'user' ? '我：' : '') + String(lastMsg.text || '').replace(/\n/g, ' ').slice(0, 30);
         }
         const time = lastMsg ? (lastMsg.time || '') : '';
         const isActive = c.id === appData.activeContactId;
@@ -3230,7 +3252,9 @@ function openMemoryCorePage() {
 function renderCoreMemories() {
     const cont = document.getElementById('core-memory-list');
     cont.innerHTML = '';
-    appData.coreMemories.forEach((cm, idx) => {
+    // 新→旧：最新的刻印排最上面
+    [...appData.coreMemories].reverse().forEach((cm, ri) => {
+        const idx = appData.coreMemories.length - 1 - ri;
         cont.innerHTML += `
             <div class="action-card" style="padding:12px; display:flex; flex-direction:column; gap:4px;">
                 <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--ios-blue); font-weight:600;">
@@ -5620,13 +5644,28 @@ function switchWbTab(tabId, btn) {
     if (tabId === 'memory') renderMemTab();
 }
 
+let dragJbId = null;
+function jbDragStart(e, id) { dragJbId = id; if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; }
+function jbDrop(e, id) {
+    e.preventDefault();
+    if (dragJbId && dragJbId !== id) {
+        const from = appData.jailbreaks.findIndex(x => x.id === dragJbId);
+        const to = appData.jailbreaks.findIndex(x => x.id === id);
+        if (from >= 0 && to >= 0) {
+            const moved = appData.jailbreaks.splice(from, 1)[0];
+            appData.jailbreaks.splice(to, 0, moved);
+            persist(); renderJailbreaks();
+        }
+    }
+    dragJbId = null;
+}
 function renderJailbreaks() {
     const container = document.getElementById('jb-entry-list');
     if (!container) return;
     container.innerHTML = '';
     appData.jailbreaks.forEach(jb => {
         container.innerHTML += `
-            <div class="clean-item">
+            <div class="clean-item" draggable="true" ondragstart="jbDragStart(event,'${jb.id}')" ondragover="event.preventDefault()" ondrop="jbDrop(event,'${jb.id}')" title="长按/拖动可排序（越靠前权重越高）">
                 <div class="clean-item-left" onclick="openEntryEditor('jailbreak', '${jb.id}')">
                     <span style="font-size:12px;">⚡</span>
                     <span class="clean-item-title">${jb.title}</span>
@@ -5724,6 +5763,21 @@ function deleteCategory(catName) {
     renderWorldbooks();
 }
 
+let dragWbId = null;
+function wbDragStart(e, id) { dragWbId = id; if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; }
+function wbDrop(e, id) {
+    e.preventDefault();
+    if (dragWbId && dragWbId !== id) {
+        const from = appData.worldbooks.findIndex(x => x.id === dragWbId);
+        const to = appData.worldbooks.findIndex(x => x.id === id);
+        if (from >= 0 && to >= 0) {
+            const moved = appData.worldbooks.splice(from, 1)[0];
+            appData.worldbooks.splice(to, 0, moved);
+            persist(); renderWorldbooks();
+        }
+    }
+    dragWbId = null;
+}
 function renderWorldbooks() {
     const container = document.getElementById('wb-entry-list');
     if (!container) return;
@@ -5732,7 +5786,7 @@ function renderWorldbooks() {
 
     list.forEach(wb => {
         container.innerHTML += `
-            <div class="clean-item">
+            <div class="clean-item" draggable="true" ondragstart="wbDragStart(event,'${wb.id}')" ondragover="event.preventDefault()" ondrop="wbDrop(event,'${wb.id}')" title="长按/拖动可排序（越靠前权重越高）">
                 <div class="clean-item-left" onclick="openEntryEditor('worldbook', '${wb.id}')">
                     <span style="font-size:12px;">📖</span>
                     <span class="clean-item-title">${wb.title}</span>
@@ -6355,7 +6409,7 @@ const APPEARANCE_DEFAULTS = {
     fontSize: 14, fontFamily: 'inherit',
     bubbleFontSize: 14, timeFontSize: 9.5, headerFontSize: 16.5,
     lineHeight: 1.45, letterSpacing: 0,
-    bubbleRadius: 18, bubbleMaxWidth: 76, msgGap: 6,
+    bubbleRadius: 18, bubbleMaxWidth: 76, msgGap: 6, bubblePadY: 9, moduleBg: '',
     charBubbleBg: '#f1f3f5', userBubbleBg: '',
     themeColor: '#007aff', pageBgColor: '#f2f5f8', chatBgColor: '#ffffff',
     bubbleOpacity: 100, glassBlur: 0, glassStrength: 12, fontLink: ''
@@ -6391,6 +6445,9 @@ function applyAppearance() {
     root.setProperty('--bubble-line-height', a.lineHeight);
     root.setProperty('--bubble-letter-spacing', a.letterSpacing + 'px');
     root.setProperty('--bubble-radius', a.bubbleRadius + 'px');
+    root.setProperty('--bubble-padding-y', (a.bubblePadY !== undefined ? a.bubblePadY : 9) + 'px');
+    root.setProperty('--bubble-padding-x', (a.bubblePadX !== undefined ? a.bubblePadX : 13) + 'px');
+    root.setProperty('--module-bg', a.moduleBg || '');
     root.setProperty('--bubble-max-width', a.bubbleMaxWidth + '%');
     root.setProperty('--msg-gap', a.msgGap + 'px');
     root.setProperty('--char-bubble-bg', a.charBubbleBg);
@@ -6553,6 +6610,8 @@ function syncAppearanceControls() {
     setVal('cfg-line-height', a.lineHeight); setTxt('val-line-height', a.lineHeight);
     setVal('cfg-letter-spacing', a.letterSpacing); setTxt('val-letter-spacing', a.letterSpacing);
     setVal('cfg-bubble-radius', a.bubbleRadius); setTxt('val-bubble-radius', a.bubbleRadius);
+    setVal('cfg-bubble-pad-y', a.bubblePadY !== undefined ? a.bubblePadY : 9); setTxt('val-bubble-pad-y', a.bubblePadY !== undefined ? a.bubblePadY : 9);
+    setVal('cfg-module-bg', a.moduleBg || '');
     setVal('cfg-bubble-max', a.bubbleMaxWidth); setTxt('val-bubble-max', a.bubbleMaxWidth + '%');
     setVal('cfg-msg-gap', a.msgGap); setTxt('val-msg-gap', a.msgGap);
     setVal('cfg-font-family', a.fontFamily);
@@ -6660,8 +6719,44 @@ function renderAppearancePresets() {
         <div style="display:flex; align-items:center; gap:6px; background:var(--bg-page); border-radius:8px; padding:6px 8px;">
             <span style="flex:1; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.name)}</span>
             <button class="btn-action secondary small" onclick="applyAppearancePreset(${i})">应用</button>
+            <button class="btn-action secondary small" onclick="exportAppearancePreset(${i})">导出</button>
             <button class="btn-action danger small" style="padding:2px 8px;" onclick="deleteAppearancePreset(${i})">✕</button>
         </div>`).join('');
+}
+
+// 导出某个预设为 JSON 文件（分享给别人）
+function exportAppearancePreset(idx) {
+    const list = getAppearancePresets();
+    const p = list[idx];
+    if (!p || !p.data) { openAlert('该预设不存在'); return; }
+    const blob = new Blob([JSON.stringify({ type: 'xiaoshouji-appearance-preset', name: p.name, data: p.data }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '外观预设_' + (p.name || '未命名') + '.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    openAlert('已导出预设「' + p.name + '」');
+}
+// 导入别人的预设 JSON
+function importAppearancePreset(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        try {
+            const parsed = JSON.parse(e.target.result);
+            const data = (parsed && parsed.type === 'xiaoshouji-appearance-preset') ? parsed.data : parsed;
+            if (!data || typeof data !== 'object') { openAlert('不是有效的外观预设文件'); return; }
+            const name = (parsed && parsed.name) ? parsed.name : (file.name.replace(/\.json$/i, '') || '导入预设');
+            const list = getAppearancePresets();
+            list.push({ name: name, data: JSON.parse(JSON.stringify(data)), time: Date.now() });
+            saveAppearancePresets(list);
+            renderAppearancePresets();
+            openAlert('已导入预设「' + name + '」');
+        } catch (err) { openAlert('导入失败：文件格式不正确'); }
+        if (input) input.value = '';
+    };
+    reader.readAsText(file);
 }
 
 // 恢复默认外观
@@ -6835,7 +6930,8 @@ function doExportAll() {
         memo: localStorage.getItem('sr_memo') || '',
         appearance: collectSingleKey('sr_appearance', {}),
         mcp: collectSingleKey('sr_mcp_servers', []),
-        boundWbIds: collectSingleKey('sr_bound_wb_ids', []),
+        boundJailbreaks: collectSingleKey('sr_bound_jailbreaks', []),
+        contactBoundWbs: collectPrefixedKeys('sr_bound_wbs_'),
         lockBg: localStorage.getItem('sr_lock_bg') || '',
         lockQuote: localStorage.getItem('sr_lock_quote') || '',
         dark: localStorage.getItem('sr_dark') === 'true',
@@ -7151,6 +7247,12 @@ function importBackupData(input) {
                 if (parsed.appearance) restoreKey('sr_appearance', parsed.appearance);
                 if (parsed.mcp) restoreKey('sr_mcp_servers', parsed.mcp);
                 if (parsed.boundWbIds) restoreKey('sr_bound_wb_ids', parsed.boundWbIds);
+                if (parsed.boundJailbreaks) restoreKey('sr_bound_jailbreaks', parsed.boundJailbreaks);
+                if (parsed.contactBoundWbs && parsed.contactBoundWbs.length) {
+                    parsed.contactBoundWbs.forEach(function (entry) {
+                        if (entry && entry.key) localStorage.setItem(entry.key, JSON.stringify(entry.value));
+                    });
+                }
                 if (parsed.lockBg) restoreKey('sr_lock_bg', parsed.lockBg);
                 if (parsed.lockQuote) restoreKey('sr_lock_quote', parsed.lockQuote);
                 if (parsed.dark) restoreKey('sr_dark', true);
@@ -8324,7 +8426,10 @@ ${userPick}
     }
 }
 
+function toggleNavForWorldPlay(open) { setBottomNavVisible(!open); }
+
 async function openWorldPlay(id, isNew = false) {
+    toggleNavForWorldPlay(true);
     const w = worldData.archives.find(x => x.id === id);
     if (!w) return;
     worldData.currentId = id;
@@ -8346,6 +8451,7 @@ async function openWorldPlay(id, isNew = false) {
 }
 
 function closeWorldPlay() {
+    toggleNavForWorldPlay(false);
     if (typeof worldBatchMode !== 'undefined' && worldBatchMode) exitWorldBatchMode();
     const w = worldData.archives.find(x => x.id === worldData.currentId);
     if (w) { w.updatedAt = Date.now(); persistWorldData(); }
