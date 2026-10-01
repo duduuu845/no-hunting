@@ -392,7 +392,7 @@ let appData = {
     stickers: JSON.parse(localStorage.getItem('sr_stickers') || '{"默认表情":[]}'),
     auditLogs: JSON.parse(localStorage.getItem('sr_audit_logs') || '[]'),
     isDark: JSON.parse(localStorage.getItem('sr_dark') || 'false'),
-    chatHistory: JSON.parse(localStorage.getItem('sr_chat_history') || '[]'),
+    chatHistory: [],
     lastMemoCommented: localStorage.getItem('sr_last_memo_commented') || '',
     lastUserPhoto: localStorage.getItem('sr_last_user_photo') || '',
     lastUserPhotoKey: localStorage.getItem('sr_last_user_photo_key') || '',
@@ -582,7 +582,7 @@ function updateChatHeaderUI() {
     const hvContent = document.getElementById('heart-voice-content');
     if (hvContent) {
         const activeC = getActiveContact();
-        const hv = (activeC && activeC.heartVoice) || appData.heartVoice || '';
+        const hv = (activeC && activeC.heartVoice) || '';
         hvContent.innerText = hv ? hv : '现在还没有想法哦';
     }
     const memoAvatar = document.getElementById('memo-char-avatar');
@@ -658,7 +658,6 @@ function persist() {
     localStorage.setItem('sr_dark', JSON.stringify(appData.isDark));
 
     try {
-        localStorage.setItem('sr_chat_history', JSON.stringify(appData.chatHistory));
         localStorage.setItem('sr_last_user_photo', appData.lastUserPhoto || '');
         localStorage.setItem('sr_last_user_photo_key', appData.lastUserPhotoKey || '');
     } catch (e) {
@@ -969,7 +968,7 @@ function toggleHeartVoice() {
     const pop = document.getElementById('heart-voice-pop');
     if (pop) {
         const activeC = getActiveContact();
-        const hv = (activeC && activeC.heartVoice) || appData.heartVoice || '';
+        const hv = (activeC && activeC.heartVoice) || '';
         const content = document.getElementById('heart-voice-content');
         if (content) content.innerText = hv ? hv : '现在还没有想法哦';
         pop.classList.toggle('open');
@@ -1812,7 +1811,7 @@ async function triggerAiReply() {
 
     const statusEl = document.getElementById('header-contact-status');
     const originalStatus = statusEl.innerText;
-    statusEl.innerText = "对方正在输入...";
+    if (replyStillActive) { if (replyStillActive) { statusEl.innerText = "对方正在输入..."; } }
     touchLastMsgTs();
 
     const endpoint = appData.api.endpoint;
@@ -1831,6 +1830,11 @@ async function triggerAiReply() {
     // 角色信息优先取当前联系人（多联系人体系）；人设缺省时回退人物档案库
     const activeContactC = getActiveContact();
     const IS_GROUP = isGroupContact(activeContactC);
+    // 回复归属锁定：AI 回复必须写回「发起这条对话的联系人」，防止切到别的聊天后回复串进别人那里
+    const replyOwnerId = activeContactC ? activeContactC.id : null;
+    const replyCur = getActiveContact();
+    const replyStillActive = !!replyCur && !!replyOwnerId && replyCur.id === replyOwnerId;
+    const replyHist = (replyStillActive ? appData.chatHistory : ((appData.contacts.find(c => c.id === replyOwnerId) || {}).chatHistory)) || [];
     let charObj = null;
     let groupMembers = [];
     if (IS_GROUP) {
@@ -2073,10 +2077,9 @@ async function triggerAiReply() {
         if (hvMatch) {
             const hvText = (hvMatch[1] !== undefined ? hvMatch[1] : hvMatch[2]).trim();
             if (hvText) {
-                appData.heartVoice = hvText;
-                const activeC = getActiveContact();
-                if (activeC) activeC.heartVoice = hvText;
-                localStorage.setItem('sr_heart_voice', hvText);
+                // 心声只存发起回复的那个联系人，绝不写入全局（否则所有 char 会共享同一句心声）
+                const ownerC = appData.contacts.find(c => c.id === replyOwnerId);
+                if (ownerC) ownerC.heartVoice = hvText;
             }
             fullReply = fullReply.replace(/\[heart_voice\][\s\S]*?\[\/heart_voice\]|\[heart_voice:\s*[^\]]*\]/g, '').trim();
         }
@@ -2166,7 +2169,7 @@ async function triggerAiReply() {
     if (toolResults.length) {
         const toolMsg = `[系统返回的工具调用结果]\n${toolResults.join('\n\n')}\n\n请基于这些结果，用你的角色口吻继续回复。`;
         // 把工具结果加入对话历史，然后递归调用一次
-        appData.chatHistory.push({
+        replyHist.push({
             id: 'tool_result_' + Date.now(),
             role: 'user',
             text: toolMsg,
@@ -2196,17 +2199,17 @@ async function triggerAiReply() {
             }
             for (let i = 0; i < groupSegs.length; i++) {
                 const seg = groupSegs[i];
-                statusEl.innerText = seg.sender + ' 正在说话...';
+                if (replyStillActive) { statusEl.innerText = seg.sender + ' 正在说话...'; }
                 await sleep(700 + Math.min(seg.text.length * 25, 900));
                 const now = new Date();
                 const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
                 const msgId = 'msg_group_' + Date.now() + '_' + i;
                 const member = groupMembers.find(m => m.name === seg.sender) || {};
-                appendGroupBubble(seg.sender, (member && member.avatar) || '🐺', seg.text, timeStr, msgId);
-                appData.chatHistory.push({ id: msgId, role: 'group', sender: seg.sender, text: seg.text, time: timeStr, quote: null });
+                if (replyStillActive) appendGroupBubble(seg.sender, (member && member.avatar) || '🐺', seg.text, timeStr, msgId);
+                replyHist.push({ id: msgId, role: 'group', sender: seg.sender, text: seg.text, time: timeStr, quote: null });
                 persist();
             }
-            updateChatHeaderUI();
+            if (replyStillActive) updateChatHeaderUI();
             return;
         }
 
@@ -2215,7 +2218,7 @@ async function triggerAiReply() {
         // AI 主动撤回：[撤回] → 撤回 AI 上一条已发消息（微信样式提醒），不显示指令本身
         if (/\[撤回\]/.test(fullReply)) {
             try {
-                const hist = appData.chatHistory || [];
+                const hist = replyHist || [];
                 for (let i = hist.length - 1; i >= 0; i--) {
                     const m = hist[i];
                     if (m.role !== 'char' || m.recalled || (m.text && m.text.indexOf('[撤回]') !== -1)) continue;
@@ -2245,8 +2248,8 @@ async function triggerAiReply() {
             const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
             const msgId = 'msg_' + Date.now() + '_' + i;
 
-            appendBubbleToUI('char', rawBubbles[i], timeStr, null, msgId);
-            appData.chatHistory.push({ id: msgId, role: 'char', text: rawBubbles[i], time: timeStr, quote: null });
+            if (replyStillActive) appendBubbleToUI('char', rawBubbles[i], timeStr, null, msgId);
+            replyHist.push({ id: msgId, role: 'char', text: rawBubbles[i], time: timeStr, quote: null });
             persist();
         }
 
@@ -2258,7 +2261,7 @@ async function triggerAiReply() {
 
         // --- 发送 AI 生成的图片 ---
         for (const prompt of imagePrompts) {
-            statusEl.innerText = "对方正在发送图片...";
+            if (replyStillActive) { statusEl.innerText = "对方正在发送图片..."; }
             const imgUrl = await callImageApi(prompt, true, randomImgSizeKey());
             if (imgUrl) {
                 const now = new Date();
@@ -2270,8 +2273,8 @@ async function triggerAiReply() {
                 let imgSaved = true;
                 try { await ImageDB.put(imgKey, imgUrl); } catch (err) { imgSaved = false; }
 
-                appendAiImageBubble(imgUrl, timeStr, msgId);
-                appData.chatHistory.push({
+                if (replyStillActive) appendAiImageBubble(imgUrl, timeStr, msgId);
+                replyHist.push({
                     id: msgId, role: 'char',
                     type: 'aiImg',
                     text: `📷 [${appData.contactName} 发送了一张图片]`,
@@ -2284,8 +2287,8 @@ async function triggerAiReply() {
                 const now = new Date();
                 const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
                 const msgId = 'msg_aiimgfail_' + Date.now();
-                appendBubbleToUI('char', `（本来想给你发张图，但是生成失败了）`, timeStr, null, msgId);
-                appData.chatHistory.push({
+                if (replyStillActive) appendBubbleToUI('char', `（本来想给你发张图，但是生成失败了）`, timeStr, null, msgId);
+                replyHist.push({
                     id: msgId, role: 'char',
                     text: `（本来想给你发张图，但是生成失败了）`,
                     time: timeStr, quote: null
@@ -2295,7 +2298,7 @@ async function triggerAiReply() {
         }
         // --- 发送"带 user 本人的合照" ---
         for (const prompt of userImgPrompts) {
-            statusEl.innerText = "对方正在制作合照...";
+            if (replyStillActive) { statusEl.innerText = "对方正在制作合照..."; }
             const imgUrl = await callImageApiWithUserPhoto(prompt, true);
             if (imgUrl) {
                 const now = new Date();
@@ -2305,7 +2308,7 @@ async function triggerAiReply() {
                 let imgSaved = true;
                 try { await ImageDB.put(imgKey, imgUrl); } catch (err) { imgSaved = false; }
                 appendAiImageBubble(imgUrl, timeStr, msgId);
-                appData.chatHistory.push({
+                replyHist.push({
                     id: msgId, role: 'char',
                     type: 'aiImg',
                     text: `📷 [${appData.contactName} 发来一张合照]`,
@@ -2318,8 +2321,8 @@ async function triggerAiReply() {
                 const now = new Date();
                 const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
                 const msgId = 'msg_userimgfail_' + Date.now();
-                appendBubbleToUI('char', `（本来想给你做张合照，结果翻车了）`, timeStr, null, msgId);
-                appData.chatHistory.push({
+                if (replyStillActive) appendBubbleToUI('char', `（本来想给你做张合照，结果翻车了）`, timeStr, null, msgId);
+                replyHist.push({
                     id: msgId, role: 'char',
                     text: `（本来想给你做张合照，结果翻车了）`,
                     time: timeStr, quote: null
@@ -2329,9 +2332,9 @@ async function triggerAiReply() {
         }
 
     } catch (e) {
-        showAiErrorBubble(e);
+        if (replyStillActive) showAiErrorBubble(e);
     } finally {
-        statusEl.innerText = originalStatus;
+        if (replyStillActive && statusEl) statusEl.innerText = originalStatus;
     }
 }
 
