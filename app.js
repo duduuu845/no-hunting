@@ -627,7 +627,9 @@ function persist() {
     localStorage.setItem('sr_wb_cats', JSON.stringify(appData.worldbookCategories));
     localStorage.setItem('sr_worldbooks', JSON.stringify(appData.worldbooks));
     localStorage.setItem('sr_c_name', appData.contactName);
-    if (activeC) saveContactScopedData(activeC.id);  // 记忆/日程表按当前联系人独立保存
+    // 记忆/日程表按"当前查看目标"保存：记忆页二级查看某 char 时存该 char，否则存当前联系人
+    const memSaveId = (memViewContactId !== null && memViewContactId !== undefined) ? memViewContactId : (activeC ? activeC.id : '');
+    if (memSaveId) saveContactScopedData(memSaveId);
     localStorage.setItem('sr_favorites', JSON.stringify(appData.favorites));
     localStorage.setItem('sr_bound_wb_ids', JSON.stringify(appData.boundWbIds));
     localStorage.setItem('sr_stickers', JSON.stringify(appData.stickers));
@@ -1098,7 +1100,16 @@ function openSubModal(id) {
     if (id === 'page-doc-analysis') populateDocCharSelect();
     if (id === 'page-api-setting') { fillPushConfig(); fillActiveMsgs(); }
 }
-function closeSubModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeSubModal(id) {
+    document.getElementById(id).classList.remove('open');
+    // 关闭世界书弹窗时，把记忆数据恢复回当前联系人（避免残留别的 char 的记忆）
+    if (id === 'modal-wb-hub') {
+        memViewContactId = null;
+        memImportTargetId = null;
+        const active = getActiveContact();
+        loadContactScopedData(active ? active.id : '');
+    }
+}
 
 // ==================== 气泡交互 ====================
 let currentQuoteData = null;
@@ -4390,6 +4401,13 @@ function b64urlEncode(buf) {
     return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 async function enableBackendPush() {
+    // 先实时取设置页输入框里的地址（用户可能填了但没点右上角「保存」）
+    const pushInput = document.getElementById('cfg-push-worker');
+    const pushInputVal = pushInput ? pushInput.value.trim() : '';
+    if (pushInputVal) {
+        localStorage.setItem('sr_push_worker_url', pushInputVal);
+        if (document.getElementById('push-status-text')) refreshPushStatus();
+    }
     const workerUrl = getPushWorkerUrl();
     if (!workerUrl) { openAlert('请先填写后台推送 Worker 地址（Cloudflare Workers 免费部署）'); return; }
     try {
@@ -4504,6 +4522,10 @@ function renderActiveMsgs() {
         </div>`).join('');
 }
 function addActiveMsg() {
+    // 兜底：设置页输入框里填过推送地址就先保存（不强制等「保存」按钮）
+    const pushInput = document.getElementById('cfg-push-worker');
+    const pushInputVal = pushInput ? pushInput.value.trim() : '';
+    if (pushInputVal) localStorage.setItem('sr_push_worker_url', pushInputVal);
     const timeEl = document.getElementById('am-time');
     const textEl = document.getElementById('am-text');
     const time = (timeEl && timeEl.value) || '12:00';
@@ -5549,12 +5571,19 @@ function clearAuditLog() {
 
 // ==================== 世界书管理 ====================
 let currentWbTab = 'jailbreak';
+// 记忆页两级结构：null=一级char列表；char id=查看该char的记忆
+let memViewContactId = null;
+let memImportTargetId = null;
 let currentWbCategory = '全部';
 
 function openWbHub() {
     try {
+        memViewContactId = null;
+        memImportTargetId = null;
+        const active = getActiveContact();
+        loadContactScopedData(active ? active.id : '');
         renderJailbreaks();
-        renderMemories();
+        renderMemTab();
         renderWbCategories();
         renderWorldbooks();
         openSubModal('modal-wb-hub');
@@ -5572,6 +5601,7 @@ function switchWbTab(tabId, btn) {
     document.getElementById('wb-tab-jailbreak').style.display = (tabId === 'jailbreak') ? 'flex' : 'none';
     document.getElementById('wb-tab-memory').style.display = (tabId === 'memory') ? 'flex' : 'none';
     document.getElementById('wb-tab-worldbook').style.display = (tabId === 'worldbook') ? 'flex' : 'none';
+    if (tabId === 'memory') renderMemTab();
 }
 
 function renderJailbreaks() {
@@ -5691,7 +5721,7 @@ function renderWorldbooks() {
                     <span style="font-size:12px;">📖</span>
                     <span class="clean-item-title">${wb.title}</span>
                 </div>
-                <input type="checkbox" ${wb.enabled?'checked':''} onchange="toggleWbEnabled('${wb.id}', this.checked)">
+                <span style="color:var(--text-sub);">›</span>
             </div>
         `;
     });
@@ -5790,6 +5820,136 @@ function deleteCurrentEntry() {
 }
 
 // ==================== 记忆卷宗 ====================
+// ==================== 记忆两级页（char 记忆总结 → 单个 char 记忆管理） ====================
+function renderMemTab() {
+    const listBox = document.getElementById('mem-char-list');
+    const detailBox = document.getElementById('mem-detail');
+    if (!listBox || !detailBox) return;
+    if (memViewContactId === null) {
+        listBox.style.display = 'flex';
+        detailBox.style.display = 'none';
+        renderMemCharList();
+    } else {
+        listBox.style.display = 'none';
+        detailBox.style.display = 'flex';
+        loadContactScopedData(memViewContactId);
+        const c = (appData.contacts || []).find(x => x.id === memViewContactId);
+        const t = document.getElementById('mem-detail-title');
+        if (t) t.innerText = '「' + (c ? (c.realName || c.name || 'TA') : 'TA') + '」的记忆管理';
+        renderMemories();
+    }
+}
+
+// 读取某 char 的独立记忆数据（直接从 localStorage 读，不污染当前内存）
+function readContactMemoryData(id) {
+    let core = [], mem = { long: [], medium: [], short: [] };
+    try { const v = JSON.parse(localStorage.getItem('sr_core_mems_' + id) || '[]'); core = Array.isArray(v) ? v : []; } catch (e) {}
+    try { const p = JSON.parse(localStorage.getItem('sr_memories_' + id) || '{}') || {}; mem = { long: Array.isArray(p.long) ? p.long : [], medium: Array.isArray(p.medium) ? p.medium : [], short: Array.isArray(p.short) ? p.short : [] }; } catch (e) {}
+    return { coreMemories: core, memories: mem };
+}
+
+function renderMemCharList() {
+    const listBox = document.getElementById('mem-char-list');
+    if (!listBox) return;
+    listBox.innerHTML = '';
+    const contacts = appData.contacts || [];
+    if (!contacts.length) {
+        listBox.innerHTML = '<div style="font-size:11px; color:var(--text-sub); text-align:center; padding:14px 0;">还没有联系人，先去添加一个 char 吧</div>';
+        return;
+    }
+    contacts.forEach(c => {
+        const name = (c.realName || c.name || '新朋友');
+        const d = readContactMemoryData(c.id);
+        const total = d.coreMemories.length + d.memories.long.length + d.memories.medium.length + d.memories.short.length;
+        const expanded = (memImportTargetId === c.id);
+        listBox.innerHTML += `
+        <div class="action-card" style="padding:0; overflow:hidden;">
+            <div class="clean-item" style="cursor:pointer;" onclick="openCharMemView('${c.id}')">
+                <div class="clean-item-left">
+                    <span style="font-size:14px;">📋</span>
+                    <span class="clean-item-title">${name} 的记忆总结</span>
+                    <span style="font-size:10px; color:var(--text-sub); background:var(--char-bubble); padding:1px 7px; border-radius:8px; flex-shrink:0;">${total} 条</span>
+                </div>
+                <button class="btn-action secondary small" style="padding:2px 9px;" onclick="event.stopPropagation(); toggleMemImport('${c.id}')">${expanded ? '收起 ▴' : '导入 ▾'}</button>
+            </div>
+            ${expanded ? `
+            <div style="padding:8px 10px; border-top:0.5px solid var(--border-light); display:flex; flex-direction:column; gap:7px;">
+                <div style="font-size:11px; color:var(--text-sub); line-height:1.5;">从其他 char 导入记忆总结到「${name}」（核心记忆 + 卷宗 + 中长期 + 短期，重复内容自动跳过）：</div>
+                <div style="display:flex; flex-direction:column; gap:5px;" id="mem-import-opts-${c.id}">
+                    ${renderMemImportOptions(c.id)}
+                </div>
+                <button class="btn-action small" onclick="importSelectedMems('${c.id}')">导入选中</button>
+            </div>` : ''}
+        </div>`;
+    });
+}
+
+function renderMemImportOptions(targetId) {
+    const contacts = (appData.contacts || []).filter(x => x.id !== targetId);
+    if (!contacts.length) return '<div style="font-size:11px; color:var(--text-sub);">没有其他 char 可导入</div>';
+    return contacts.map(c => {
+        const d = readContactMemoryData(c.id);
+        const n = d.coreMemories.length + d.memories.long.length + d.memories.medium.length + d.memories.short.length;
+        return `<label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-main);">
+            <input type="checkbox" class="mem-import-check" data-src="${c.id}" style="accent-color:var(--ios-blue);"> ${c.realName || c.name || '新朋友'}（${n} 条）
+        </label>`;
+    }).join('');
+}
+
+function openCharMemView(id) {
+    memViewContactId = id;
+    memImportTargetId = null;
+    renderMemTab();
+}
+
+function backMemList() {
+    memViewContactId = null;
+    memImportTargetId = null;
+    const active = getActiveContact();
+    loadContactScopedData(active ? active.id : '');
+    renderMemTab();
+}
+
+function toggleMemImport(id) {
+    memImportTargetId = (memImportTargetId === id) ? null : id;
+    renderMemCharList();
+}
+
+function importSelectedMems(targetId) {
+    const checks = document.querySelectorAll('.mem-import-check:checked');
+    if (!checks.length) { openAlert('请先勾选要导入的 char'); return; }
+    const srcIds = Array.from(checks).map(x => x.dataset.src);
+    const target = readContactMemoryData(targetId);
+    let addedCore = 0, addedLong = 0, addedMid = 0, addedShort = 0;
+    srcIds.forEach(sid => {
+        const s = readContactMemoryData(sid);
+        s.coreMemories.forEach(cm => {
+            if (!target.coreMemories.some(t => t.text === cm.text)) { target.coreMemories.push(cm); addedCore++; }
+        });
+        s.memories.long.forEach(lm => {
+            if (!target.memories.long.some(t => t.id === lm.id || (t.title === lm.title && t.content === lm.content))) { target.memories.long.push(lm); addedLong++; }
+        });
+        s.memories.medium.forEach(mm => {
+            if (!target.memories.medium.some(t => t.id === mm.id || (t.content === mm.content && t.date === mm.date))) { target.memories.medium.push(mm); addedMid++; }
+        });
+        s.memories.short.forEach(sm => {
+            if (!target.memories.short.some(t => t.id === sm.id || (t.content === sm.content && t.date === sm.date))) { target.memories.short.push(sm); addedShort++; }
+        });
+    });
+    try {
+        localStorage.setItem('sr_core_mems_' + targetId, JSON.stringify(target.coreMemories));
+        localStorage.setItem('sr_memories_' + targetId, JSON.stringify(target.memories));
+    } catch (e) { openAlert('存储空间不足，导入失败'); return; }
+    // 若正在查看目标 char 的记忆页则刷新内存显示
+    if (memViewContactId === targetId) {
+        loadContactScopedData(targetId);
+        renderMemories();
+    } else {
+        renderMemCharList();
+    }
+    openAlert('已导入到「' + (appData.contacts || []).find(x => x.id === targetId)?.realName || (appData.contacts || []).find(x => x.id === targetId)?.name || '该 char' + '」：核心记忆 ' + addedCore + ' 条、卷宗 ' + addedLong + ' 条、中长期 ' + addedMid + ' 条、短期 ' + addedShort + ' 条');
+}
+
 function renderMemories() {
     if (!appData.memories) appData.memories = { long: [], medium: [], short: [] };
     if (!Array.isArray(appData.memories.long)) appData.memories.long = [];
