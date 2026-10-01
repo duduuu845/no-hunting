@@ -1837,18 +1837,17 @@ async function triggerAiReply() {
         groupMembers = getGroupMembers(activeContactC);
         charObj = { name: activeContactC.name || '群聊', prompt: groupMembers.filter(m => m.role === 'char').map(m => `${m.name}：${m.prompt || '(未填写人设)'}`).join('\n') };
     } else if (activeContactC) {
+        // 人设只取「当前联系人自己的 prompt + 显式绑定的同名人物档案」，绝不用全局人物档案库兜底
+        // （否则所有新 char 没写人设时会串成同一个人，如默认变成档案库第一个/活跃皮套）
         const personaC = getCharPersona(activeContactC);
         let prompt = activeContactC.prompt || '';
         if (personaC && personaC.prompt) {
             prompt = personaC.prompt;
-        } else if (!prompt && appData.personas && appData.personas.char && appData.personas.char.length) {
-            prompt = (appData.personas.char.find(c => c.id === activePersonaCharId) || appData.personas.char[0]).prompt || '';
         }
+        // prompt 为空就保持空：全新关系、干净人设，由 [关系铁律] 引导从零开始
         charObj = { name: (personaC && personaC.name) || activeContactC.name || '新朋友', prompt: prompt };
     } else {
-        charObj = (appData.personas.char.find(c => c.id === activePersonaCharId))
-               || (appData.personas.char && appData.personas.char[0])
-               || { name: "新朋友", prompt: "" };
+        charObj = { name: activeContactC ? activeContactC.name : "新朋友", prompt: activeContactC ? (activeContactC.prompt || '') : '' };
     }
     const userObj = appData.personas.user.find(u => u.id === activePersonaUserId)
                  || (appData.personas.user && appData.personas.user[0])
@@ -1874,7 +1873,8 @@ async function triggerAiReply() {
     } else {
         systemPrompt += `[CHAR 角色档案]:\n姓名: ${charObj.name}\n人设: ${charObj.prompt || '(未填写人设)'}\n`;
         systemPrompt += `[关系铁律 (必须遵守)]: 你是一个完全独立的全新角色，与 user 的关系只由「人设」和这段对话的真实发展决定。禁止预设任何已有关系（恋人/暧昧/家人都不允许），禁止沿用或借用任何其他角色的关系、称呼、记忆或说话习惯。若人设为空，你们就是刚认识的新朋友，一切从零开始，用自然朋友式的语气开场。\n\n`;
-        systemPrompt += `[USER 对话伴侣档案]:\n姓名: ${userObj.name}\n人设: ${userObj.prompt}\n\n`;
+        systemPrompt += `[USER 对话伴侣档案]:\n姓名: ${userObj.name || '(未设定)'}\n人设: ${userObj.prompt || '(未设定)'}\n`;
+        systemPrompt += `[称呼铁律]: 对 user 的称呼只依据当前这段对话的发展，禁止凭档案或印象直接叫出名字（如江医生/江xx等），未确认前用「你」或中性称呼。\n\n`;
     }
     systemPrompt += `[生效世界书]:\n${activeWorldbooks.map(w => `【${w.title}】:\n${w.content}`).join('\n')}\n\n`;
     systemPrompt += `[长期记忆核心]:\n${appData.coreMemories.map(c => c.text).join('\n')}\n\n`;
