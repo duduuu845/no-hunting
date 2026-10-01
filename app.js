@@ -1620,8 +1620,9 @@ function createImgPlaceholderRow(chatView, item) {
 function fillImgPlaceholderRow(row, item, dataUrl) {
     const bubble = row.querySelector('.msg-bubble');
     if (!bubble) return;
-    if (dataUrl) {
-        bubble.innerHTML = `<img src="${dataUrl}" style="max-width:180px; border-radius:12px; display:block; cursor:pointer;" onclick="openImgViewer('${dataUrl}')">`;
+    const finalUrl = dataUrl || (item && item.mediaUrl) || '';
+    if (finalUrl) {
+        bubble.innerHTML = `<img src="${finalUrl}" style="max-width:180px; border-radius:12px; display:block; cursor:pointer;" onclick="openImgViewer('${finalUrl}')">`;
     } else {
         bubble.innerHTML = `<div style="padding:20px 30px; background:var(--char-bubble); border-radius:12px; color:var(--text-sub); font-size:12px; text-align:center;">📷 图片未保存</div>`;
     }
@@ -2214,17 +2215,16 @@ async function triggerAiReply() {
 
                 // 图片存 IndexedDB
                 const imgKey = 'img_' + msgId;
-                ImageDB.put(imgKey, imgUrl).catch(err => {
-                    console.warn('IndexedDB 写入失败:', err);
-                });
+                let imgSaved = true;
+                try { await ImageDB.put(imgKey, imgUrl); } catch (err) { imgSaved = false; }
 
                 appendAiImageBubble(imgUrl, timeStr, msgId);
                 appData.chatHistory.push({
                     id: msgId, role: 'char',
                     type: 'aiImg',
                     text: `📷 [${appData.contactName} 发送了一张图片]`,
-                    mediaUrl: '',
-                    imgKey: imgKey,
+                    mediaUrl: imgSaved ? '' : imgUrl,
+                    imgKey: imgSaved ? imgKey : '',
                     time: timeStr, quote: null
                 });
                 persist();
@@ -2250,14 +2250,15 @@ async function triggerAiReply() {
                 const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
                 const msgId = 'msg_userimg_' + Date.now();
                 const imgKey = 'img_' + msgId;
-                ImageDB.put(imgKey, imgUrl).catch(err => console.warn('IndexedDB 写入失败:', err));
+                let imgSaved = true;
+                try { await ImageDB.put(imgKey, imgUrl); } catch (err) { imgSaved = false; }
                 appendAiImageBubble(imgUrl, timeStr, msgId);
                 appData.chatHistory.push({
                     id: msgId, role: 'char',
                     type: 'aiImg',
                     text: `📷 [${appData.contactName} 发来一张合照]`,
-                    mediaUrl: '',
-                    imgKey: imgKey,
+                    mediaUrl: imgSaved ? '' : imgUrl,
+                    imgKey: imgSaved ? imgKey : '',
                     time: timeStr, quote: null
                 });
                 persist();
@@ -2608,10 +2609,10 @@ function handleRealImageSend(input) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         const rawBase64 = e.target.result;
 
-        compressDataUrl(rawBase64, 800, 0.8).then(compressedBase64 => {
+        compressDataUrl(rawBase64, 800, 0.8).then(async compressedBase64 => {
             const now = new Date();
             const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
             const msgId = 'msg_realimg_' + Date.now();
@@ -2632,16 +2633,15 @@ function handleRealImageSend(input) {
             scrollChatToBottom();
 
             const imgKey = 'img_' + msgId;
-            ImageDB.put(imgKey, compressedBase64).catch(err => {
-                console.warn('IndexedDB 写入失败:', err);
-            });
+            let imgSaved = true;
+            try { await ImageDB.put(imgKey, compressedBase64); } catch (err) { imgSaved = false; }
 
             appData.chatHistory.push({
                 id: msgId, role: 'user',
                 type: 'realImg',
                 text: `📷 [发送了一张图片]`,
-                mediaUrl: '',
-                imgKey: imgKey,
+                mediaUrl: imgSaved ? '' : compressedBase64,
+                imgKey: imgSaved ? imgKey : '',
                 time: timeStr, quote: null
             });
             // 把这张图记成"用户最近的长相参考图"
@@ -4645,6 +4645,10 @@ window.onload = function() {
     if (savedLockBg) {
         document.documentElement.style.setProperty('--lock-bg-custom', `url(${savedLockBg})`);
     }
+    const savedChatBg = localStorage.getItem('sr_chat_bg');
+    if (savedChatBg) {
+        document.documentElement.style.setProperty('--chat-bg-custom', `url(${savedChatBg})`);
+    }
 
     updateLockClock();
     setInterval(updateLockClock, 10000);
@@ -6177,7 +6181,7 @@ const APPEARANCE_DEFAULTS = {
     lineHeight: 1.45, letterSpacing: 0,
     bubbleRadius: 18, bubbleMaxWidth: 76, msgGap: 6,
     charBubbleBg: '#f1f3f5', userBubbleBg: '',
-    themeColor: '#007aff', pageBgColor: '#f2f5f8', chatBgColor: '#14161c',
+    themeColor: '#007aff', pageBgColor: '#f2f5f8', chatBgColor: '#ffffff',
     bubbleOpacity: 100, glassBlur: 0, glassStrength: 12, fontLink: ''
 };
 const THEME_PRESETS = ['#007aff', '#ff2d55', '#5856d6', '#34c759', '#ff9500', '#00c7be', '#1c1c1e'];
@@ -6189,6 +6193,15 @@ let appearance = (() => {
 })();
 
 function saveAppearance() { localStorage.setItem('sr_appearance', JSON.stringify(appearance)); }
+
+// 主题色 hex → "r,g,b"（供 rgba(var(--ios-blue-rgb), 0.x) 阴影使用）
+function hexToRgbStr(hex) {
+    let h = String(hex || '#007aff').replace('#', '');
+    if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+    const n = parseInt(h, 16);
+    if (isNaN(n)) return '0,122,255';
+    return (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255);
+}
 
 // 把外观配置写入 CSS 变量（实时生效）
 function applyAppearance() {
@@ -6219,6 +6232,8 @@ function applyAppearance() {
     root.setProperty('--char-br-bl', cr.bl + 'px');
     root.setProperty('--char-br-br', cr.br + 'px');
     root.setProperty('--theme-color', a.themeColor);
+    root.setProperty('--ios-blue', a.themeColor);
+    root.setProperty('--ios-blue-rgb', hexToRgbStr(a.themeColor));
     root.setProperty('--page-bg-color', a.pageBgColor);
     root.setProperty('--chat-bg-color', a.chatBgColor);
     root.setProperty('--bubble-opacity', a.bubbleOpacity);
@@ -6557,7 +6572,9 @@ function handleBgUpload(input) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = function(e) {
-        document.documentElement.style.setProperty('--chat-bg-custom', `url(${e.target.result})`);
+        const bgData = e.target.result;
+        document.documentElement.style.setProperty('--chat-bg-custom', `url(${bgData})`);
+        try { localStorage.setItem('sr_chat_bg', bgData); } catch (err) {}
         persist();
         openAlert('壁纸已更换！');
     };
@@ -6565,8 +6582,17 @@ function handleBgUpload(input) {
 }
 
 function clearBg() {
-    document.documentElement.style.setProperty('--chat-bg-custom', 'transparent');
+    document.documentElement.style.removeProperty('--chat-bg-custom');
+    try { localStorage.removeItem('sr_chat_bg'); } catch (err) {}
     openAlert('已清除壁纸！');
+}
+
+// 恢复默认聊天背景：清除壁纸 + 恢复出厂默认聊天背景色（浅色模式白 / 深色模式深）
+function restoreDefaultChatBg() {
+    try { clearBg(); } catch (e) {}
+    const defBg = appData.isDark ? '#14161c' : '#ffffff';
+    setAppearance('chatBgColor', defBg);
+    openAlert('已恢复默认聊天背景');
 }
 
 function handleLockBgUpload(input) {

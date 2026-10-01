@@ -1471,10 +1471,11 @@
 
             <div class="action-card" style="padding:12px 14px; margin-top:10px;">
                 <span style="font-size:13px; font-weight:600;">聊天背景壁纸</span>
-                <div style="display:flex; gap:8px; margin-top:6px;">
+                <div style="display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;">
                     <input type="file" id="bg-file-input" style="display:none;" accept="image/*" onchange="handleBgUpload(this)">
                     <button class="btn-action secondary small" onclick="document.getElementById('bg-file-input').click()">📷 上传壁纸</button>
                     <button class="btn-action danger small" onclick="clearBg()">清除壁纸</button>
+                    <button class="btn-action small" onclick="restoreDefaultChatBg()">↩ 恢复默认</button>
                 </div>
             </div>
 
@@ -1496,7 +1497,7 @@
                     <input type="color" class="appearance-color" id="cfg-page-bg" value="#f2f5f8" oninput="setAppearance('pageBgColor', this.value)">
                 </div>
                 <div class="appearance-row"><span class="appearance-label">聊天背景</span>
-                    <input type="color" class="appearance-color" id="cfg-chat-bg" value="#14161c" oninput="setAppearance('chatBgColor', this.value)">
+                    <input type="color" class="appearance-color" id="cfg-chat-bg" value="#ffffff" oninput="setAppearance('chatBgColor', this.value)">
                 </div>
             </div>
 
@@ -1679,7 +1680,7 @@
     </div>
 </div>
 
-<script src="app.js?v=44"></script>
+<script src="app.js?v=47"></script>
 <script>
 // 物理直连：手账存盘保存绝对通道 (绝不被外部中断)
 function saveJournalEntry() {

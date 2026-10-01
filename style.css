@@ -2,13 +2,14 @@
     --bg-page: #f2f5f8;
     --chat-bg: #ffffff;
     --ios-blue: #007aff;
+    --ios-blue-rgb: 0, 122, 255;
     --ios-blue-gradient: linear-gradient(180deg, #2196f3 0%, #007aff 100%);
     --char-bubble: #f1f3f5;
     --text-main: #111827;
     --text-sub: #8e8e93;
     --border-light: #e5e7eb;
     --panel-bg: rgba(255, 255, 255, 0.96);
-    --chat-bg-custom: transparent;
+    --chat-bg-custom: linear-gradient(180deg, #d2e5ff 0%, #eef5ff 100%);  /* 默认浅蓝渐变聊天背景 */
     --bottom-nav-height: 56px;   /* 底栏基础高度 */
     /* 🍅 番茄钟专属圆润字体
        - 中英文都优先选圆体
@@ -37,6 +38,7 @@
 body.dark-mode {
     --bg-page: #05070e;
     --chat-bg: #000000;
+    --chat-bg-custom: transparent;
     --char-bubble: #1c1c1e;
     --text-main: #ffffff;
     --text-sub: rgba(235, 235, 245, 0.6);
@@ -164,7 +166,7 @@ body {
 .header-left { display: flex; align-items: center; gap: 8px; flex: 1; }
 .header-right { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex: 1; }
 .header-title-text { font-size: 16.5px; font-weight: 600; color: var(--text-main); white-space: nowrap; }
-.header-status-text { font-size: 10px; color: var(--text-sub); margin-top: 1px; white-space: nowrap; }
+.header-status-text { font-size: 10px; color: var(--text-sub); margin-top: 5px; white-space: nowrap; }
 
 .general-header {
     background: var(--panel-bg);
@@ -693,7 +695,7 @@ body.dark-mode .memo-block { background: rgba(255,255,255,0.04); }
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 122, 255, 0.15); /* 淡淡的蓝调高光投影 */
+    box-shadow: 0 2px 6px rgba(var(--ios-blue-rgb), 0.15); /* 淡淡的主题色高光投影 */
     transition: all 0.15s ease;
     padding: 0;
 }
@@ -1339,7 +1341,7 @@ body.dark-mode .journal-note-tape {
     background: var(--ios-blue);
     color: #ffffff;
     border-color: var(--ios-blue);
-    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+    box-shadow: 0 2px 8px rgba(var(--ios-blue-rgb), 0.3);
 }
 
 /* 信纸质感正文卡片 (带微微噪点感与内衬边框) */
@@ -2938,8 +2940,8 @@ select.appearance-select {
     border: 0.5px solid rgba(0,0,0,0.06);
 }
 #view-chat-container .ios-text-input { color: #1a1a1a; }
-#view-chat-container .btn-icon-circle { color: #007aff; }
-#view-chat-container .btn-send-trigger { background: #007aff; color: #fff; }
+#view-chat-container .btn-icon-circle { color: var(--theme-color); }
+#view-chat-container .btn-send-trigger { background: var(--theme-color); color: #fff; }
 
 /* ==================== 海景锁屏（用户原版照搬，vw→等比例px） ==================== */
 .lockscreen-overlay {
