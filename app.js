@@ -436,12 +436,15 @@ function loadContactScopedData(contactId) {
     } catch (e) { appData.memories = { long: [], medium: [], short: [] }; }
     try { const v = JSON.parse(localStorage.getItem('sr_diaries_' + id) || '[]'); appData.diaries = Array.isArray(v) ? v : []; }
     catch (e) { appData.diaries = []; }
+    try { const v = JSON.parse(localStorage.getItem('sr_schedules_' + id) || '[]'); appData.schedules = Array.isArray(v) ? v : []; }
+    catch (e) { appData.schedules = []; }
 }
 function saveContactScopedData(contactId) {
     const id = contactId || '';
     localStorage.setItem('sr_core_mems_' + id, JSON.stringify(appData.coreMemories));
     localStorage.setItem('sr_memories_' + id, JSON.stringify(appData.memories));
     localStorage.setItem('sr_diaries_' + id, JSON.stringify(appData.diaries));
+    localStorage.setItem('sr_schedules_' + id, JSON.stringify(appData.schedules));
 }
 function migrateLegacyScopedData() {
     // 一次性迁移：旧版全局记忆数据归到第一个联系人，随后彻底按联系人隔离
@@ -450,7 +453,8 @@ function migrateLegacyScopedData() {
     const pairs = [
         ['sr_core_mems', 'sr_core_mems_', '[]'],
         ['sr_memories', 'sr_memories_', '{}'],
-        ['sr_diaries', 'sr_diaries_', '[]']
+        ['sr_diaries', 'sr_diaries_', '[]'],
+        ['sr_schedules', 'sr_schedules_', '[]']
     ];
     pairs.forEach(function (pair) {
         const oldKey = pair[0], newKey = pair[1] + first.id;
@@ -623,9 +627,8 @@ function persist() {
     localStorage.setItem('sr_wb_cats', JSON.stringify(appData.worldbookCategories));
     localStorage.setItem('sr_worldbooks', JSON.stringify(appData.worldbooks));
     localStorage.setItem('sr_c_name', appData.contactName);
-    if (activeC) saveContactScopedData(activeC.id);  // 记忆按当前联系人独立保存
+    if (activeC) saveContactScopedData(activeC.id);  // 记忆/日程表按当前联系人独立保存
     localStorage.setItem('sr_favorites', JSON.stringify(appData.favorites));
-    localStorage.setItem('sr_schedules', JSON.stringify(appData.schedules));
     localStorage.setItem('sr_bound_wb_ids', JSON.stringify(appData.boundWbIds));
     localStorage.setItem('sr_stickers', JSON.stringify(appData.stickers));
     localStorage.setItem('sr_audit_logs', JSON.stringify(appData.auditLogs));
@@ -4924,7 +4927,6 @@ function renderPersonaSubList() {
                     <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
                         <div style="font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px;">
                             <span>${p.name}</span>
-                            ${isCurrent ? `<span style="font-size:10px; color:#34c759; background:rgba(52,199,89,0.12); padding:1px 6px; border-radius:10px;">当前使用中</span>` : ''}
                         </div>
                         <div style="font-size:11px; color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                             ${p.sign || '未设置签名'}
@@ -4932,10 +4934,8 @@ function renderPersonaSubList() {
                     </div>
                 </div>
                 ${currentPersonaCategory === 'user'
-                    ? (isCurrent
-                        ? `<span style="font-size:10px; color:#34c759; background:rgba(52,199,89,0.12); padding:2px 8px; border-radius:10px; flex-shrink:0;">当前使用中</span>`
-                        : `<button class="btn-action secondary small" style="flex-shrink:0;" onclick="setActiveUserPersona('${p.id}'); event.stopPropagation();">设为当前使用身份</button>`)
-                    : (isCurrent ? `<span style="font-size:10px; color:#34c759; background:rgba(52,199,89,0.12); padding:2px 8px; border-radius:10px; flex-shrink:0;">当前使用中</span>` : '')}
+                    ? (isCurrent ? '' : `<button class="btn-action secondary small" style="flex-shrink:0;" onclick="setActiveUserPersona('${p.id}'); event.stopPropagation();">设为当前使用身份</button>`)
+                    : ''}
             </div>
         `;
     });
@@ -6685,6 +6685,7 @@ function openExportOptionsDialog() {
     titleEl.innerText = "导出数据";
     bodyEl.innerHTML = `
         <button class="btn-action" style="width:100%; margin-bottom:8px; padding:12px; font-size:13px;" onclick="doExportAll()">⬇️ 导出全部数据（一键备份）</button>
+        <button class="btn-action secondary" style="width:100%; margin-bottom:8px; padding:10px; font-size:12px;" onclick="exportContactMemory()">💭 导出当前人记忆（含回忆录/日记/日程表）</button>
         <div style="font-size:11px; color:var(--text-sub); margin:4px 0 6px;">— 或 按模块单独导出 —</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;">
             <button class="btn-action secondary small" onclick="exportModule('contacts')">👥 联系人</button>
@@ -7972,6 +7973,7 @@ const WIZ_TAGS = {
 };
 
 let wizSelected = { world: [], relation: [], persona: [], plot: [] };
+let wizSelectedChar = null;  // 一键生成选中的 CHAR（null=自动用当前皮套）
 
 function openWorldRandomWizard() {
     renderWizTags();
@@ -8008,7 +8010,7 @@ async function runWorldWizard() {
 角色气质：${wizSelected.persona.join('、') || '随意'}
 故事走向：${wizSelected.plot.join('、') || '随意'}`;
 
-    const activeChar = appData.personas.char.find(c => c.id === activePersonaCharId) || appData.personas.char[0] || { name: '新朋友', avatar: '🐺' };
+    const activeChar = wizSelectedChar || appData.personas.char.find(c => c.id === activePersonaCharId) || appData.personas.char[0] || { name: '新朋友', avatar: '🐺' };
     const activeUser = appData.personas.user.find(u => u.id === activePersonaUserId) || appData.personas.user[0] || { name: '新朋友', avatar: '🦊' };
 
     const prompt = `你是一位互动小说策划师。用户选了以下方向，请你生成一份完整的文游开局设定。
@@ -8017,6 +8019,7 @@ ${userPick}
 
 重要约束：
 - CHAR 的名字固定为「${activeChar.name}」，不要改名。
+- CHAR 的原有性格设定（必须融合进这个世界观下的身份设计，不要丢失核心特质）：${activeChar.prompt || '（无特别设定）'}
 - USER 的名字固定为「${activeUser.name}」，不要改名。
 - 你只需要为这两个固定角色设计"在这个世界观下的身份、处境、与对方的关系"。
 - 请严格按以下 JSON 格式输出（只输出 JSON，不要任何其他文字、不要 markdown 代码块标记）：
@@ -8238,6 +8241,10 @@ async function callWorldApi() {
         if (item.role === 'user') messages.push({ role: 'user', content: item.text });
         else messages.push({ role: 'assistant', content: item.text });
     });
+    // 兼容部分服务商：messages 首条不能是 assistant（开局只有旁白时补一条开场引导）
+    if (!messages.some(m => m.role === 'user')) {
+        messages.splice(1, 0, { role: 'user', content: '（场景已就绪，请以旁白开始演绎开局）' });
+    }
 
     let url = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
     url = url.endsWith('/v1') ? `${url}/chat/completions` : `${url}/v1/chat/completions`;
@@ -9720,4 +9727,223 @@ async function updateMcpStatus() {
         } catch (e) {}
     }
     el.innerText = `${okCount}/${servers.length} 个服务在线`;
+}
+// ==================== 导出当前人记忆 / 身份卡 / 导入角色卡 ====================
+function getActiveContactSafe() {
+    const c = getActiveContact();
+    if (!c) { openAlert('请先添加/选择一个联系人'); return null; }
+    return c;
+}
+
+// 导出当前联系人的全部独立数据（记忆/回忆录/日记/日程表 + 联系人资料）
+function exportContactMemory() {
+    const c = getActiveContactSafe();
+    if (!c) return;
+    const data = {
+        type: 'sr_contact_memory',
+        version: 1,
+        contact: {
+            id: c.id, name: c.name, realName: c.realName || c.name, avatar: c.avatar || '', prompt: c.prompt || ''
+        },
+        coreMemories: appData.coreMemories || [],
+        memories: appData.memories || { long: [], medium: [], short: [] },
+        diaries: appData.diaries || [],
+        schedules: appData.schedules || []
+    };
+    downloadJson(JSON.stringify(data, null, 2), 'memory_' + safeFileName(c.name) + '.json');
+    closeAppDialog();
+    openAlert('已导出「' + c.name + '」的记忆');
+}
+
+function safeFileName(name) {
+    return String(name || 'contact').replace(/[\\/:*?"<>|]/g, '_').slice(0, 24);
+}
+
+// 导出当前联系人身份卡（JSON）
+function exportIdentityCardJson() {
+    const c = getActiveContactSafe();
+    if (!c) return;
+    const data = {
+        type: 'sr_char_card',
+        version: 1,
+        name: c.name,
+        realName: c.realName || c.name,
+        avatar: c.avatar || '🐺',
+        prompt: c.prompt || '',
+        exportedAt: new Date().toISOString()
+    };
+    downloadJson(JSON.stringify(data, null, 2), 'card_' + safeFileName(c.name) + '.json');
+    closeAppDialog();
+    openAlert('已导出「' + c.name + '」身份卡 JSON');
+}
+
+// 导出当前联系人身份卡（PNG 图片卡片）
+function exportIdentityCardPng() {
+    const c = getActiveContactSafe();
+    if (!c) return;
+    const W = 720, H = 1000;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+
+    // 背景
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#4b6ef5'); g.addColorStop(0.5, '#7a4ff0'); g.addColorStop(1, '#c94ff0');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // 装饰圆
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(W - 90, 120, 160, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(80, H - 120, 120, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '600 22px "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('CHAR 身份卡', W / 2, 90);
+
+    // 头像
+    const avatar = (c.avatar || '🐺').trim();
+    const isImg = avatar.startsWith('http') || avatar.startsWith('data:');
+    const drawAvatar = (src) => {
+        const img = new Image();
+        img.onload = () => {
+            ctx.save();
+            ctx.beginPath(); ctx.arc(W / 2, 290, 92, 0, Math.PI * 2); ctx.clip();
+            ctx.drawImage(img, W / 2 - 92, 290 - 92, 184, 184);
+            ctx.restore();
+            ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(W / 2, 290, 92, 0, Math.PI * 2); ctx.stroke();
+            finishCard();
+        };
+        img.onerror = () => { drawEmojiAvatar(); finishCard(); };
+        img.src = src;
+    };
+    const drawEmojiAvatar = () => {
+        ctx.font = '110px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(avatar.slice(0, 2), W / 2, 292);
+    };
+    const finishCard = () => {
+        ctx.textBaseline = 'alphabetic';
+        // 名字
+        ctx.fillStyle = '#fff';
+        ctx.font = '600 46px "PingFang SC", sans-serif';
+        ctx.fillText(c.name || '新朋友', W / 2, 455);
+        // 真实姓名行
+        if (c.realName && c.realName !== c.name) {
+            ctx.font = '400 22px "PingFang SC", sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.75)';
+            ctx.fillText('本名 · ' + c.realName, W / 2, 498);
+        }
+        // 人设卡片
+        ctx.fillStyle = 'rgba(255,255,255,0.16)';
+        roundRect(ctx, 50, 545, W - 100, 330, 24);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.5;
+        roundRect(ctx, 50, 545, W - 100, 330, 24);
+        ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.font = '600 24px "PingFang SC", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('性格 / 设定', 86, 592);
+        ctx.font = '400 21px "PingFang SC", sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        const lines = wrapText(ctx, c.prompt || '（这个人还没有填写人设，等你来补全 TA 的故事）', 92, 640, W - 184, 34);
+        lines.slice(0, 8).forEach((ln, i) => ctx.fillText(ln, 86, 640 + i * 34));
+        // 底部
+        ctx.textAlign = 'center';
+        ctx.font = '400 18px "PingFang SC", sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.fillText('—— 小手机 · CHAR 分享卡 ——', W / 2, 950);
+
+        const a = document.createElement('a');
+        a.href = cv.toDataURL('image/png');
+        a.download = 'card_' + safeFileName(c.name) + '.png';
+        a.click();
+        closeAppDialog();
+        openAlert('已导出「' + c.name + '」身份卡 PNG');
+    };
+
+    if (isImg) drawAvatar(avatar); else { drawEmojiAvatar(); finishCard(); }
+}
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+}
+function wrapText(ctx, text, x, y, maxW, lineH) {
+    const words = String(text || '').split('');
+    const lines = []; let line = '';
+    for (const ch of words) {
+        if (ctx.measureText(line + ch).width > maxW) { lines.push(line); line = ch; }
+        else line += ch;
+    }
+    if (line) lines.push(line);
+    return lines;
+}
+
+// 导入单个角色卡：读取 JSON → 创建为新联系人（用于分享不同 char）
+function importCharacterCard(input) {
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (data.type !== 'sr_char_card' || !data.name) {
+                openAlert('这不是有效的身份卡文件（缺少 type/name）');
+                return;
+            }
+            addContactData(data.name, data.avatar || '🐺', data.prompt || '', data.realName || data.name);
+            openAlert('已导入角色卡：「' + data.name + '」');
+        } catch (err) {
+            openAlert('导入失败：' + err.message);
+        }
+    };
+    reader.readAsText(file);
+    if (input) input.value = '';
+}
+
+// ==================== 一键生成：选择 CHAR ====================
+function toggleWizCharSel() {
+    const box = document.getElementById('wiz-char-list');
+    if (!box) return;
+    const show = box.style.display === 'none';
+    box.style.display = show ? 'flex' : 'none';
+    const arrow = document.getElementById('wiz-char-arrow');
+    if (arrow) arrow.innerText = show ? '▾' : '▸';
+    if (show) renderWizCharList();
+}
+function renderWizCharList() {
+    const box = document.getElementById('wiz-char-list');
+    if (!box) return;
+    const chars = (appData.personas && Array.isArray(appData.personas.char)) ? appData.personas.char : [];
+    if (!chars.length) {
+        box.innerHTML = '<div style="font-size:11px; color:var(--text-sub); padding:6px 0;">还没有 CHAR 皮套，先去「人物档案库」创建吧</div>';
+        return;
+    }
+    box.innerHTML = chars.map(ch => {
+        const picked = wizSelectedChar && wizSelectedChar.id === ch.id;
+        return `<div onclick="pickWizChar('${ch.id}')" style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; cursor:pointer; ${picked ? 'background:rgba(0,122,255,0.15); outline:1.5px solid var(--ios-blue);' : 'background:var(--char-bubble);'}">
+            <div class="persona-avatar-box" style="width:30px; height:30px; font-size:14px;">${(ch.avatar && (ch.avatar.startsWith('http') || ch.avatar.startsWith('data:'))) ? `<img src="${ch.avatar}" class="persona-avatar-img">` : (ch.avatar || '🐺')}</div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:12.5px; font-weight:600;">${escapeHtml(ch.name || '未命名')}</div>
+                <div style="font-size:10.5px; color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(ch.sign || ch.prompt || '无签名')}</div>
+            </div>
+            ${picked ? '<span style="font-size:11px; color:var(--ios-blue);">✓</span>' : ''}
+        </div>`;
+    }).join('');
+}
+function pickWizChar(id) {
+    const ch = (appData.personas.char || []).find(x => x.id === id);
+    if (!ch) return;
+    wizSelectedChar = ch;
+    const nameEl = document.getElementById('wiz-char-name');
+    if (nameEl) nameEl.innerText = ch.name || '未命名';
+    renderWizCharList();
 }

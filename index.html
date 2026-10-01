@@ -364,6 +364,15 @@
                         <div id="wiz-plot-tags" class="tab-bar" style="flex-wrap:wrap;"></div>
                     </div>
 
+                    <div class="action-card" style="padding:12px;">
+                        <div id="wiz-char-head" onclick="toggleWizCharSel()" style="font-size:12.5px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+                            <span><i class="fa-solid fa-user-tie"></i> 选择 CHAR</span>
+                            <span id="wiz-char-arrow" style="color:var(--text-sub);">▸</span>
+                        </div>
+                        <div id="wiz-char-list" style="display:none; flex-direction:column; gap:6px; margin-top:8px;"></div>
+                        <div style="font-size:12px; color:var(--ios-blue); margin-top:6px;">当前：<span id="wiz-char-name">自动使用当前皮套</span></div>
+                    </div>
+
                     <button class="btn-action" style="padding:14px;" onclick="runWorldWizard()"><i class="fa-solid fa-spinner"></i> 让 AI 生成</button>
                 </div>
             </div>
@@ -602,7 +611,11 @@
                     <button class="btn-action secondary" style="padding:12px 8px; font-size:12px;" onclick="document.getElementById('import-file-input').click()">📂 导入恢复数据</button>
                     <button class="btn-action secondary" style="padding:12px 8px; font-size:12px;" onclick="showStorageUsage()">📊 查看存储占用</button>
                     <button class="btn-action danger" style="padding:12px 8px; font-size:12px; background:#ef4444; color:#fff;" onclick="confirmClearAllData()">🗑️ 清空所有数据</button>
+                    <button class="btn-action secondary" style="padding:12px 8px; font-size:12px;" onclick="exportIdentityCardJson()">🪪 导出身份卡 JSON</button>
+                    <button class="btn-action secondary" style="padding:12px 8px; font-size:12px;" onclick="exportIdentityCardPng()">🖼️ 导出身份卡 PNG</button>
+                    <button class="btn-action secondary" style="padding:12px 8px; font-size:12px;" onclick="document.getElementById('card-import-input').click()">📥 导入角色卡</button>
                     <input type="file" id="import-file-input" style="display:none;" accept=".json" onchange="importBackupData(this)">
+                    <input type="file" id="card-import-input" style="display:none;" accept=".json" onchange="importCharacterCard(this)">
                 </div>
             </div>
         </div>
@@ -1574,6 +1587,23 @@
                 </div>
             </div>
 
+            <div class="action-card" style="padding:12px 14px; margin-top:14px;">
+                <div style="font-size:12px; font-weight:600; margin-bottom:8px;">👁 实时预览（改完看效果）</div>
+                <div id="appearance-preview" style="border-radius:12px; overflow:hidden; background:var(--chat-bg-color,#14161c); padding:12px; display:flex; flex-direction:column; gap:6px; border:1px solid var(--border-light);">
+                    <div style="display:flex; justify-content:space-between; font-size:11px;">
+                        <span id="preview-title" style="color:var(--text-main);">预览标题</span>
+                        <span id="preview-status" style="color:var(--text-sub);">在线 · 心情不错</span>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end;">
+                        <div id="preview-user-bubble" class="pv-bubble pv-user">我发的消息气泡</div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-start;">
+                        <div id="preview-char-bubble" class="pv-bubble pv-char">TA 的消息气泡</div>
+                    </div>
+                    <div class="pv-time" style="text-align:center; color:var(--text-sub);">09:30 · 消息时间</div>
+                </div>
+            </div>
+
             <div class="action-card" style="padding:12px 14px; margin-top:10px;">
                 <div style="font-size:13px; font-weight:600; margin-bottom:6px;">磨玻璃特效</div>
                 <div class="appearance-row"><span class="appearance-label">启用磨玻璃</span>
@@ -1599,23 +1629,6 @@
 
             <div class="action-card" style="padding:12px 14px; margin-top:14px;">
                 <button class="btn-action secondary" style="width:100%;" onclick="resetAppearance()">恢复默认外观</button>
-            </div>
-
-            <div class="action-card" style="padding:12px 14px; margin-top:14px;">
-                <div style="font-size:12px; font-weight:600; margin-bottom:8px;">👁 实时预览（改完看效果）</div>
-                <div id="appearance-preview" style="border-radius:12px; overflow:hidden; background:var(--chat-bg-color,#14161c); padding:12px; display:flex; flex-direction:column; gap:6px; border:1px solid var(--border-light);">
-                    <div style="display:flex; justify-content:space-between; font-size:11px;">
-                        <span id="preview-title" style="color:var(--text-main);">预览标题</span>
-                        <span id="preview-status" style="color:var(--text-sub);">在线 · 心情不错</span>
-                    </div>
-                    <div style="display:flex; justify-content:flex-end;">
-                        <div id="preview-user-bubble" class="pv-bubble pv-user">我发的消息气泡</div>
-                    </div>
-                    <div style="display:flex; justify-content:flex-start;">
-                        <div id="preview-char-bubble" class="pv-bubble pv-char">TA 的消息气泡</div>
-                    </div>
-                    <div class="pv-time" style="text-align:center; color:var(--text-sub);">09:30 · 消息时间</div>
-                </div>
             </div>
 
         </div>
@@ -1666,7 +1679,7 @@
     </div>
 </div>
 
-<script src="app.js?v=42"></script>
+<script src="app.js?v=43"></script>
 <script>
 // 物理直连：手账存盘保存绝对通道 (绝不被外部中断)
 function saveJournalEntry() {

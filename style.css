@@ -47,7 +47,7 @@ body.dark-mode {
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body {
     background-color: #cbd5e1;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+    font-family: var(--app-font-family, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif);
     color: var(--text-main);
     display: flex;
     justify-content: center;
