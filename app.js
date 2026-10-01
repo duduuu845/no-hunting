@@ -3683,8 +3683,13 @@ function openEditDayMarkerDialog() {
 
 function pickMarkerColor(el, color) {
     selectedMarkerColor = color;
-    document.querySelectorAll('.color-select-dot').forEach(d => d.style.borderColor = "transparent");
-    if (el) el.style.borderColor = "#111827";
+    // 红色小三角形是用 border 画的（border-bottom 是它的"身体"），清 borderColor 会把它变透明，
+    // 所以对它跳过 border 操作，只处理真正的圆点
+    document.querySelectorAll('.color-select-dot').forEach(d => {
+        if (d.dataset && d.dataset.marker === 'triangle') return;
+        d.style.borderColor = "transparent";
+    });
+    if (el && !(el.dataset && el.dataset.marker === 'triangle')) el.style.borderColor = "#111827";
 }
 
 // 由日历标记同步生成纪念日库（birthday/anniversary/important 收录，自动补类型标签）
