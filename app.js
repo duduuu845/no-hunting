@@ -1519,17 +1519,27 @@ async function renderChatHistory() {
     // 图片带 imgKey 的：先渲染占位行保持时间顺序，异步读取后再原位填充
     const pendingImgs = [];
     let lastTimeKey = '';
+    // 时间分隔线最小间隔（分钟）：10 分钟内不重复显示时间，避免每分钟一条破坏观感
+    const TIME_DIVIDER_MIN_GAP = 10;
 
     for (const item of appData.chatHistory) {
         // 时间分隔线（iMessage 风格：今天→"今天 HH:MM"，其他→"M月D日 HH:MM"）
         const tk = item.time || '';
         if (tk && lastTimeKey && tk !== lastTimeKey) {
-            const div = document.createElement('div');
-            div.className = 'msg-time-divider';
-            const todayStr = new Date().toISOString().slice(0,10);
             const m = tk.match(/^(\d{2}):(\d{2})$/);
-            div.innerText = m ? (new Date().toDateString().slice(0,10) === todayStr ? '今天 ' + tk : (parseInt(new Date().getMonth())+1) + '月' + new Date().getDate() + '日 ' + tk) : tk;
-            chatView.appendChild(div);
+            const lastM = lastTimeKey.match(/^(\d{2}):(\d{2})$/);
+            let showDivider = true;
+            if (m && lastM) {
+                const gapMin = Math.abs((parseInt(m[1])*60 + parseInt(m[2])) - (parseInt(lastM[1])*60 + parseInt(lastM[2])));
+                showDivider = (gapMin >= TIME_DIVIDER_MIN_GAP);
+            }
+            if (showDivider) {
+                const div = document.createElement('div');
+                div.className = 'msg-time-divider';
+                const todayStr = new Date().toISOString().slice(0,10);
+                div.innerText = m ? (new Date().toDateString().slice(0,10) === todayStr ? '今天 ' + tk : (parseInt(new Date().getMonth())+1) + '月' + new Date().getDate() + '日 ' + tk) : tk;
+                chatView.appendChild(div);
+            }
         }
         if (tk) lastTimeKey = tk;
         if (item.recalled) {
@@ -1892,7 +1902,7 @@ async function triggerAiReply() {
 【语言风格】
 - 必须碎片化、口语化，多用短句分条发送，模拟真实微信聊天节奏。
 - 大量使用"诶""emmm""哈哈""啦""呀""吧""啧""切"等语气词，避免书面语。
-- 允许打字中断、改口、说一半、打错字后自己纠正，体现即兴感。
+- 可以偶尔打字中断、改口，但不要每轮都来"不过/但是"式转折；回复要直接、有定论，想到什么说什么，别把转折当习惯。
 - 可以emoji,但不要滥用,只在情绪真实到位时用。
 - 每 12 轮左右至少一次，主动带出与你自己生活相关的当下细节。
 
@@ -1902,6 +1912,7 @@ async function triggerAiReply() {
 - 模板化表白。
 - 过度解释动机。
 - 每次都说得体、完美的回复。
+- 转折词套路（每轮都来"不过/但是/然而/其实"，尤其禁止"先肯定一句再'不过'一下"的固定句式）。
 
 【必须体现的特质】
 - 身份局限性。
@@ -3623,7 +3634,7 @@ function openEditDayMarkerDialog() {
     bodyEl.innerHTML = `
         <input type="text" class="dialog-input" id="dlg-marker-name" placeholder="..." value="${currentMarker.text || ''}">
         <div style="font-size:11px; color:var(--text-sub); margin-top:2px;">选择代表此日的颜色圆点：</div>
-        <div style="display:flex; justify-content:space-around; padding:8px 0;" id="marker-color-palette">
+        <div style="display:flex; justify-content:space-around; padding:8px 0; flex-wrap:wrap; gap:6px;" id="marker-color-palette">
             <span class="color-select-dot" data-color="#ff9bae" style="background:#ff9bae; width:22px; height:22px; border-radius:50%; cursor:pointer; border:2px solid transparent;" title="经期粉" onclick="pickMarkerColor(this, '#ff9bae')"></span>
             <span class="color-select-dot" data-color="#007aff" style="background:#007aff; width:22px; height:22px; border-radius:50%; cursor:pointer; border:2px solid transparent;" title="节假蓝" onclick="pickMarkerColor(this, '#007aff')"></span>
             <span class="color-select-dot" data-color="#ff3b30" style="background:#ff3b30; width:22px; height:22px; border-radius:50%; cursor:pointer; border:2px solid transparent;" title="重要/倒数红" onclick="pickMarkerColor(this, '#ff3b30')"></span>
@@ -3633,7 +3644,7 @@ function openEditDayMarkerDialog() {
             <span class="color-select-dot marker-triangle" data-marker="triangle" style="width:0; height:0; border-left:11px solid transparent; border-right:11px solid transparent; border-bottom:19px solid #e63946; cursor:pointer;" title="重要标记▲（纪念日/生日/重要日）" onclick="pickMarkerColor(this, '▲#e63946')"></span>
         </div>
         <div style="font-size:11px; color:var(--text-sub); margin-top:2px;">标记类型（▲ 标记时选择）：</div>
-        <div style="display:flex; gap:6px; margin-top:4px; flex-wrap:wrap;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;">
             <label style="display:flex; align-items:center; gap:4px; font-size:12px; background:var(--bg-page); padding:5px 8px; border-radius:8px;"><input type="radio" name="dlg-marker-type" value="normal" ${(currentMarker.type === 'normal' || !currentMarker.type) ? 'checked' : ''} style="width:14px; height:14px;">普通标记</label>
             <label style="display:flex; align-items:center; gap:4px; font-size:12px; background:var(--bg-page); padding:5px 8px; border-radius:8px;"><input type="radio" name="dlg-marker-type" value="birthday" ${currentMarker.type === 'birthday' ? 'checked' : ''} style="width:14px; height:14px;">🎂 生日</label>
             <label style="display:flex; align-items:center; gap:4px; font-size:12px; background:var(--bg-page); padding:5px 8px; border-radius:8px;"><input type="radio" name="dlg-marker-type" value="anniversary" ${currentMarker.type === 'anniversary' ? 'checked' : ''} style="width:14px; height:14px;">💞 纪念日</label>
