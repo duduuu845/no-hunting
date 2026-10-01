@@ -6195,7 +6195,7 @@ function applyAppearance() {
     const a = appearance;
     const root = document.documentElement.style;
     root.setProperty('--app-font-size', a.fontSize + 'px');
-    root.setProperty('--app-font-family', customFontFamilyName ? ("'" + customFontFamilyName.replace(/"/g, '') + "', " + a.fontFamily) : a.fontFamily);
+    root.setProperty('--app-font-family', fontFamilyVarValue(a));
     root.setProperty('--bubble-font-size', a.bubbleFontSize + 'px');
     root.setProperty('--time-font-size', a.timeFontSize + 'px');
     root.setProperty('--header-font-size', a.headerFontSize + 'px');
@@ -6279,10 +6279,17 @@ function applyLoadedFont(link) {
     }, 400);
 }
 // 仅更新 --app-font-family 变量（避免与 applyAppearance 互相递归）
+// 安全拼接 font-family：避免尾随逗号或非法关键字（如 inherit）导致整个声明失效
+function fontFamilyVarValue(a) {
+    const raw = (a && a.fontFamily) ? a.fontFamily : '';
+    const base = (raw && raw !== 'inherit') ? raw : '';
+    if (!customFontFamilyName) return base || 'inherit';
+    const name = "'" + String(customFontFamilyName).replace(/"/g, '') + "'";
+    return base ? (name + ', ' + base) : name;
+}
 function applyFontFamilyVar() {
     const a = appearance || {};
-    document.documentElement.style.setProperty('--app-font-family',
-        customFontFamilyName ? ("'" + customFontFamilyName.replace(/"/g, '') + "', " + (a.fontFamily || '')) : (a.fontFamily || ''));
+    document.documentElement.style.setProperty('--app-font-family', fontFamilyVarValue(a));
 }
 function applyFontLink() {
     const link = (appearance && appearance.fontLink || '').trim();
@@ -6298,10 +6305,26 @@ function applyFontLink() {
     if (!window.__knownFonts) window.__knownFonts = knownFontFamilies();
     let node = null;
     if (/\.(woff2?|ttf|otf)(\?|$)/i.test(link)) {
+        // 直链字体文件：按扩展名识别真实格式（woff2 必须用 format('woff2')，之前误写 truetype 导致浏览器拒绝加载）
+        let fmt = 'truetype';
+        if (/\.woff2(\?|$)/i.test(link)) fmt = 'woff2';
+        else if (/\.woff(\?|$)/i.test(link)) fmt = 'woff';
+        else if (/\.otf(\?|$)/i.test(link)) fmt = 'opentype';
+        // 方式一：FontFace API 直接加载（最可靠；该链接已带 CORS 头 access-control-allow-origin: *）
+        try {
+            const ff = new FontFace('CustomFont', "url('" + link + "') format('" + fmt + "')");
+            ff.load().then(function (f) {
+                if ((appearance && appearance.fontLink || '').trim() !== link) return;
+                document.fonts.add(f);
+                customFontFamilyName = 'CustomFont';
+                applyFontFamilyVar();
+            }).catch(function () {});
+        } catch (e) {}
+        // 方式二：@font-face 兜底（同样用正确 format）
         node = document.createElement('style');
         node.id = 'custom-font-link';
         node.setAttribute('data-href', link);
-        node.textContent = `@font-face { font-family: 'CustomFont'; src: url('${link}') format('truetype'); }`;
+        node.textContent = "@font-face { font-family: 'CustomFont'; src: url('" + link + "') format('" + fmt + "'); }";
         document.head.appendChild(node);
         customFontFamilyName = 'CustomFont';
         applyFontFamilyVar();
