@@ -276,7 +276,7 @@ body {
 }
 .msg-row.char .msg-bubble { background: var(--char-bubble); color: var(--text-main); border-bottom-left-radius: 4px; }
 .msg-row.user .msg-bubble { background: var(--ios-blue-gradient); color: #ffffff; border-bottom-right-radius: 4px; }
-.msg-time { font-size: 9.5px; color: var(--text-sub); opacity: 0.7; white-space: nowrap; margin-bottom: 2px; flex-shrink: 0; }
+.msg-time { font-size: 9.5px; color: #8a8a8e; opacity: 0.7; white-space: nowrap; margin-bottom: 2px; flex-shrink: 0; }
 /* 语音气泡内部结构 */
 .voice-bubble-inner {
     display: flex;
@@ -1385,8 +1385,8 @@ body.dark-mode .letter-paper-footer {
 /* 番外追更输入框气泡补充 */
 .user-story-bubble {
     align-self: flex-end;
-    background: var(--ios-blue-gradient);
-    color: #fff;
+    background: color-mix(in srgb, var(--theme-color, #007aff) 30%, transparent);
+    color: var(--text-main);
     padding: 8px 12px;
     border-radius: 14px;
     border-bottom-right-radius: 4px;
@@ -2262,7 +2262,6 @@ body.dark-mode .pomo-dish-progress { background: #3A3530; }
     --header-font-size: 16.5px;
     --char-bubble-bg: rgba(255,255,255,0.38);
     --user-bubble-bg: rgba(0,122,255,0.52);
-    --user-bubble-color: #ffffff;
     --theme-color: #007aff;
     --page-bg-color: #f2f5f8;
     --chat-bg-color: #ffffff;
@@ -2296,7 +2295,7 @@ body, .msg-bubble, .chat-view, .ios-text-input, .action-card, .clean-item, .sub-
     box-shadow: 0 1px 6px rgba(0,0,0,0.08), inset 0 0 0 0.5px rgba(255,255,255,0.08);
 }
 .msg-row.char .msg-bubble { background: var(--char-bubble-bg) !important; color: var(--char-text-color, #1a1a1a) !important; border-radius: var(--char-br-tl) var(--char-br-tr) var(--char-br-br) var(--char-br-bl) !important; }
-.msg-row.user .msg-bubble { background: var(--user-bubble-bg) !important; color: var(--user-bubble-color, #fff) !important; border-radius: var(--user-br-tl) var(--user-br-tr) var(--user-br-br) var(--user-br-bl) !important; }
+.msg-row.user .msg-bubble { background: var(--user-bubble-bg) !important; color: var(--user-text-color, #fff) !important; border-radius: var(--user-br-tl) var(--user-br-tr) var(--user-br-br) var(--user-br-bl) !important; }
 .bubble-container { max-width: var(--bubble-max-width) !important; }
 .msg-row { margin-bottom: var(--msg-gap) !important; }
 .msg-time { font-size: var(--time-font-size) !important; }
@@ -2793,7 +2792,7 @@ select.appearance-select {
     border: 0.5px solid rgba(255,255,255,0.22);
 }
 .msg-row.group-other .msg-bubble { color: var(--char-text-color, #1a1a1a) !important; border-radius: var(--char-br-tl) var(--char-br-tr) var(--char-br-br) var(--char-br-bl) !important; }
-.msg-row.group-mine .msg-bubble { color: var(--user-bubble-color, #fff) !important; border-radius: var(--user-br-tl) var(--user-br-tr) var(--user-br-br) var(--user-br-bl) !important; }
+.msg-row.group-mine .msg-bubble { color: var(--user-text-color, #fff) !important; border-radius: var(--user-br-tl) var(--user-br-tr) var(--user-br-br) var(--user-br-bl) !important; }
 .msg-row.group-other .msg-bubble::before { background: var(--char-bubble-bg); }
 .msg-row.group-mine .msg-bubble::before { background: var(--user-bubble-bg); }
 
@@ -2814,7 +2813,7 @@ select.appearance-select {
 }
 .msg-time-divider + .msg-row { margin-top: 4px; }
 /* 深色背景下的消息时间 */
-#view-chat .msg-time { color: rgba(255,255,255,0.55); }
+#view-chat .msg-time { color: rgba(255,255,255,0.45); }
 
 /* 联系人 ... 原位弹出菜单 */
 .contact-pop-menu {
@@ -3081,4 +3080,12 @@ select.appearance-select {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+
+/* 异世界选项按钮：等宽、不撑宽界面 */
+#world-play-choices { width: 100%; box-sizing: border-box; }
+#world-play-choices .btn-action {
+    width: 100%; max-width: 100%; box-sizing: border-box;
+    white-space: normal; word-break: break-word; flex-shrink: 1; min-width: 0;
+    height: auto; line-height: 1.5;
 }

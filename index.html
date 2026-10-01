@@ -228,7 +228,8 @@
                 <div class="action-card" style="padding:10px; margin-bottom:10px;">
                     <textarea class="dialog-input" id="fanwai-prompt-input" style="height:76px; resize:none;" placeholder="输入番外提示词 (输入 $ 激活万字高级模式)..."></textarea>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                        <div style="display:flex; gap:10px;">
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button class="btn-action secondary small" id="btn-fanwai-contact" onclick="openFanwaiContactPicker()"><i class="fa-solid fa-user"></i> 联系人</button>
                             <button class="btn-action secondary small" onclick="openFanwaiWbBindingModal()"><i class="fa-brands fa-hubspot"></i> 世界书</button>
                             <button class="btn-action secondary small" onclick="openNovelArchivePage()"><i class="fa-regular fa-envelope-open"></i> 番外集</button>
                         </div>
@@ -1032,6 +1033,16 @@
         <div class="sub-page-body" id="fanwai-wb-tree"></div>
     </div>
 
+    <!-- 番外对象选择子页 -->
+    <div class="sub-page" id="page-fanwai-contact">
+        <div class="sub-page-header">
+            <button class="header-btn" onclick="closeSubModal('page-fanwai-contact')">‹ 返回</button>
+            <span style="font-size:15px; font-weight:600;">选择番外对象</span>
+            <span style="font-size:12px; color:var(--text-sub);">user × char</span>
+        </div>
+        <div class="sub-page-body" id="fanwai-contact-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+
     <!-- 独立子页面：点击日历某一天弹出的【对开式双人手账拍立得卡片】 -->
     <div class="sub-page" id="page-journal-detail">
         <div class="sub-page-header">
@@ -1680,6 +1691,9 @@
             <div style="font-size:12px; color:var(--text-sub); line-height:1.6;">
                 在这里添加 MCP 服务地址（标准 Streamable HTTP 或简化 JSON-RPC 均可，已自动兼容握手与会话）。添加后点击「测试」验证连通性，聊天时 AI 将能调用服务提供的工具。
             </div>
+            <div style="font-size:11px; color:var(--text-sub); background:rgba(0,122,255,0.06); border:0.5px dashed var(--ios-blue); border-radius:10px; padding:8px 10px; line-height:1.6; margin-top:4px;">
+                🔗 MCP 是<b>按需连接</b>：只有 AI 调用工具时才握手连接，不是常驻在线。菜单里显示的「在线」数字是最近一次测试的结果；点「测试」可随时验证实时连通。
+            </div>
             <div style="font-size:11px; color:var(--text-sub); background:rgba(0,122,255,0.06); border:0.5px dashed var(--ios-blue); border-radius:10px; padding:8px 10px; line-height:1.6;">
                 💡 如果 MCP 是本地 stdio 类型（用 npx / uvx 启动、没有网址），浏览器无法直连，需要先用桥接工具转成 HTTP，例如：<br>
                 <span style="word-break:break-all;">npx @mavenworks/supergateway --stdio --port 8000</span><br>
@@ -1702,7 +1716,7 @@
     </div>
 </div>
 
-<script src="app.js?v=58"></script>
+<script src="app.js?v=62"></script>
 <script>
 // 物理直连：手账存盘保存绝对通道 (绝不被外部中断)
 function saveJournalEntry() {
