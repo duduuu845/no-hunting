@@ -3508,42 +3508,40 @@ function shiftMonth(step) {
     renderCalendarGrid();
 }
 
-// ==================== 2026 法定节假日表（国务院办公厅《关于2026年部分节假日安排的通知》） ====================
-const presetHolidays = {
-    '2026-01-01': '元旦',
-    '2026-01-02': '元旦假期',
-    '2026-01-03': '元旦假期',
-    '2026-02-15': '春节假期',
-    '2026-02-16': '除夕',
-    '2026-02-17': '春节',
-    '2026-02-18': '春节假期',
-    '2026-02-19': '春节假期',
-    '2026-02-20': '春节假期',
-    '2026-02-21': '春节假期',
-    '2026-02-22': '春节假期',
-    '2026-02-23': '春节假期',
-    '2026-04-04': '清明节',
-    '2026-04-05': '清明假期',
-    '2026-04-06': '清明假期',
-    '2026-05-01': '劳动节',
-    '2026-05-02': '劳动节假期',
-    '2026-05-03': '劳动节假期',
-    '2026-05-04': '劳动节假期',
-    '2026-05-05': '劳动节假期',
-    '2026-06-19': '端午节',
-    '2026-06-20': '端午假期',
-    '2026-06-21': '端午假期',
-    '2026-09-25': '中秋节',
-    '2026-09-26': '中秋假期',
-    '2026-09-27': '中秋假期',
-    '2026-10-01': '国庆节',
-    '2026-10-02': '国庆假期',
-    '2026-10-03': '国庆假期',
-    '2026-10-04': '国庆假期',
-    '2026-10-05': '国庆假期',
-    '2026-10-06': '国庆假期',
-    '2026-10-07': '国庆假期'
+// ==================== 节假日：公历固定节日每年自动 + 农历节日 2026-2028 三年表 + 法定长假 ====================
+const LUNAR_HOLIDAYS = {
+    '2026': { '02-16':'除夕','02-17':'春节','02-18':'春节假期','02-19':'春节假期','02-20':'春节假期','02-21':'春节假期','02-22':'春节假期','02-23':'春节假期','04-04':'清明节','04-05':'清明假期','04-06':'清明假期','06-19':'端午节','06-20':'端午假期','06-21':'端午假期','08-25':'七夕','09-25':'中秋节','09-26':'中秋假期','09-27':'中秋假期' },
+    '2027': { '02-05':'除夕','02-06':'春节','02-07':'春节假期','02-08':'春节假期','02-09':'春节假期','02-10':'春节假期','02-11':'春节假期','02-12':'春节假期','04-05':'清明节','06-09':'端午节','08-08':'七夕','09-15':'中秋节' },
+    '2028': { '01-25':'除夕','01-26':'春节','01-27':'春节假期','01-28':'春节假期','01-29':'春节假期','01-30':'春节假期','01-31':'春节假期','02-01':'春节假期','04-04':'清明节','05-28':'端午节','10-03':'中秋节' }
 };
+// 公历固定节日（每年通用）
+const FIXED_HOLIDAYS = { '01-01':'元旦','02-14':'情人节','03-08':'妇女节','05-01':'劳动节','06-01':'儿童节','09-10':'教师节','12-24':'平安夜','12-25':'圣诞节' };
+function getHolidayName(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return '';
+    const y = parts[0], md = parts[1] + '-' + parts[2], m = parts[1], d = parts[2];
+    // 农历节日优先（如 2028 中秋恰逢国庆假期，显示"中秋节"而非"国庆假期"）
+    const lunar = (LUNAR_HOLIDAYS[y] || {})[md];
+    if (lunar) return lunar;
+    if (FIXED_HOLIDAYS[md]) return FIXED_HOLIDAYS[md];
+    if (md === '10-01') return '国庆节';
+    if (m === '10' && ['02','03','04','05','06','07'].indexOf(d) !== -1) return '国庆假期';
+    if (md === '05-02' || md === '05-03' || md === '05-04' || md === '05-05') return '劳动节假期';
+    return '';
+}
+// 从手账文本提取第一个 emoji（写在备忘录里的 emoji 会自动显示到日期上；纯文字则无）
+function extractJournalEmoji(entry) {
+    if (!entry) return '';
+    if (entry.emoji) return entry.emoji;
+    const texts = [entry.foxText || '', entry.wolfText || ''];
+    for (const k in entry) { if (k.indexOf('wolf_') === 0 && entry[k]) texts.push(entry[k]); }
+    for (const t of texts) {
+        const m = t.match(/\p{Extended_Pictographic}/u);
+        if (m) return m[0];
+    }
+    return '';
+}
 
 function renderCalendarGrid() {
     const grid = document.getElementById('cal-days-container');
@@ -3570,11 +3568,12 @@ function renderCalendarGrid() {
         const isToday = (dateStr === todayStr);
         const isSelected = (dateStr === calState.selectedDateStr);
         const journal = calState.journals[dateStr];
-        const dayEmoji = (journal && journal.emoji) ? journal.emoji : '';
+        const dayEmoji = extractJournalEmoji(journal);
 
         let dotTagsHtml = '';
-        if (typeof presetHolidays !== 'undefined' && presetHolidays[dateStr]) {
-            dotTagsHtml += `<span class="cal-tag-dot holiday" title="${presetHolidays[dateStr]}"></span>`;
+        const hName = getHolidayName(dateStr);
+        if (hName) {
+            dotTagsHtml += `<span class="cal-tag-dot holiday" title="${hName}"></span>`;
         }
         if (journal && journal.marker && journal.marker.colorHex) {
             if (journal.marker.colorHex.indexOf('▲') === 0) {
@@ -3589,7 +3588,6 @@ function renderCalendarGrid() {
                 <div class="cal-dot-tags">${dotTagsHtml}</div>
                 <span class="cal-cell-num">${day}</span>
                 <span class="cal-cell-emoji">${dayEmoji}</span>
-                ${(journal && ((journal.images && journal.images.length) || journal.img || journal.foxText)) ? '<div class="cal-cell-dot"></div>' : ''}
             </div>
         `;
     }
@@ -3627,6 +3625,16 @@ function renderTodoList() {
     const curDate = calState.selectedDateStr;
     const journal = calState.journals ? calState.journals[curDate] : null;
 
+    const hName = getHolidayName(curDate);
+    if (hName) {
+        box.innerHTML += `
+            <div class="day-marker-pinned-item">
+                <span class="cal-tag-dot holiday" style="width:8px; height:8px; border-radius:50%; background:#007aff; display:inline-block; flex-shrink:0;"></span>
+                <span style="font-weight:600;">${hName}</span>
+            </div>
+        `;
+    }
+
     if (journal && journal.marker && journal.marker.text) {
         box.innerHTML += `
             <div class="day-marker-pinned-item">
@@ -3638,7 +3646,12 @@ function renderTodoList() {
 
     const list = (calState.todos || []).filter(t => t.date === curDate);
     if (!list.length && (!journal || !journal.marker || !journal.marker.text)) {
-        box.innerHTML = `<div style="font-size:12px; color:var(--text-sub); text-align:center; padding:18px 0;">今日无日程待办。</div>`;
+        // 空提示要跟在节日行后面，不能用 = 覆盖掉节日
+        if (hName) {
+            box.innerHTML += `<div style="font-size:12px; color:var(--text-sub); text-align:center; padding:18px 0;">今日无日程待办。</div>`;
+        } else {
+            box.innerHTML = `<div style="font-size:12px; color:var(--text-sub); text-align:center; padding:18px 0;">今日无日程待办。</div>`;
+        }
         return;
     }
 
