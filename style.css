@@ -3082,9 +3082,8 @@ select.appearance-select {
     justify-content: center;
 }
 
-/* 异世界选项按钮：等宽、不撑宽界面 */
-#world-play-choices { width: 100%; box-sizing: border-box; }
-#world-play-choices .btn-action {
+/* 异世界选项按钮：等宽、不撑宽界面（渲染在故事流末尾，选择器对准实际容器） */
+#world-play-body .btn-action {
     width: 100%; max-width: 100%; box-sizing: border-box;
     white-space: normal; word-break: break-word; flex-shrink: 1; min-width: 0;
     height: auto; line-height: 1.5;
