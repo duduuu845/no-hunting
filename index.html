@@ -395,8 +395,8 @@
                 </div>
                 <div style="padding:10px 14px 20px; background:var(--panel-bg); display:flex; gap:6px; border-top:0.5px solid var(--border-light);">
                     <input type="text" class="dialog-input" id="world-play-input" placeholder="你想做什么？" onkeydown="if(event.key==='Enter') sendWorldAction()">
-                    <button class="btn-action secondary" onclick="sendWorldAction(true)">发送</button>
-                    <button class="btn-action" onclick="sendWorldAction(false)">生成</button>
+                    <button class="btn-action secondary" id="btn-world-send" onclick="sendWorldAction(true)">发送</button>
+                    <button class="btn-action" id="btn-world-gen" onclick="sendWorldAction(false)">生成</button>
                 </div>
             </div>
         </div>
@@ -1715,7 +1715,7 @@
     </div>
 </div>
 
-<script src="app.js?v=67"></script>
+<script src="app.js?v=70"></script>
 <script>
 // 物理直连：手账存盘保存绝对通道 (绝不被外部中断)
 function saveJournalEntry() {

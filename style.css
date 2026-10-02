@@ -2503,6 +2503,8 @@ select.appearance-select {
     gap: 4px;
     flex-shrink: 0;
 }
+/* 未读气泡与 ⋯ 同一行：气泡贴 ⋯ 左侧，不夹在时间与 ⋯ 之间 */
+.contact-right-row { display: flex; align-items: center; gap: 3px; min-height: 18px; }
 .contact-more-btn {
     background: transparent;
     border: none;
