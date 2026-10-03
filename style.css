@@ -1478,10 +1478,6 @@ body.dark-mode .letter-paper-footer {
     overflow-y: auto !important;
 }
 
-/* 临时暴力测试 */
-.view-panel.active {
-    height: 600px !important;
-}
 
 /* ============ 主视区布局（核心） ============ */
 .main-body {

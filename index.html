@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
     <!-- 引入独立皮肤文件 -->
-    <link rel="stylesheet" href="style.css?v=26">
+    <link rel="stylesheet" href="style.css?v=28">
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
@@ -176,7 +176,7 @@
                 <div class="pop-menu-item" onclick="openAppDialog('voice')"><i class="fa-solid fa-microphone-lines"></i> 发送语音条</div>
                 <div class="pop-menu-item" onclick="startVideoCall(false)"><i class="fa-solid fa-video"></i> 视频通话</div>
                 <div class="pop-menu-item" onclick="document.getElementById('doc-file-upload').click()"><i class="fa-regular fa-file-lines"></i> 上传文件</div>
-                <input type="file" id="doc-file-upload" style="display:none;" accept=".txt,.json,.md,.csv,.pdf" onchange="handleDocFileUpload(this)">
+                <input type="file" id="doc-file-upload" style="display:none;" onchange="handleDocFileUpload(this)">
             </div>
 
             <!-- 严格对齐图示：紧贴输入框上方的微灰色引用预览条 -->
@@ -1290,10 +1290,10 @@
     </div>
     <div class="sub-page-body">
         <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px;">
-            <label style="font-size:11px; color:var(--text-sub);">上传文档 (txt / md / csv / json / word / pdf)</label>
+            <label style="font-size:11px; color:var(--text-sub);">上传文件 (文本 / 代码 / Word / PDF，图片请直接在聊天发送)</label>
             <label class="btn-action secondary small doc-file-label" style="text-align:center; display:block; cursor:pointer;">
                 📂 选择文件
-                <input type="file" id="doc-analysis-file" accept=".txt,.md,.csv,.json,.docx,.doc,.pdf" onchange="handleDocAnalysisFile(this)">
+                <input type="file" id="doc-analysis-file" onchange="handleDocAnalysisFile(this)">
             </label>
             <div id="doc-analysis-filename" style="font-size:11px; color:var(--text-sub);">未选择文件</div>
             <select class="dialog-input" id="doc-analysis-char" style="font-size:12px;" onchange="docAnalysisCharId=this.value"></select>
@@ -1367,6 +1367,8 @@
                     <option value="">-- 点击上方拉取或手动输入 --</option>
                 </select>
                 <input type="text" class="dialog-input" id="cfg-model" placeholder="手动输入模型名 (如 claude-3-5-sonnet)">
+                <label style="font-size:11px; color:var(--text-sub);">附加请求参数 (JSON, 可选 · 对话/番外/异世界生成生效)</label>
+                <textarea class="dialog-input" id="cfg-api-extra" rows="2" style="height:52px; resize:vertical; font-size:11px;" placeholder='按你中转站文档填写关闭审核的参数，如 {"ignore_content_filter":true}；留空则不传'></textarea>
             </div>
             <div class="action-card" style="padding:14px; display:flex; flex-direction:column; gap:8px; margin-top:10px;">
                 <div style="font-size:12.5px; font-weight:600; color:var(--text-main);">🎨 生图 API 配置</div>
@@ -1715,7 +1717,7 @@
     </div>
 </div>
 
-<script src="app.js?v=71"></script>
+<script src="app.js?v=77"></script>
 <script>
 // 物理直连：手账存盘保存绝对通道 (绝不被外部中断)
 function saveJournalEntry() {
